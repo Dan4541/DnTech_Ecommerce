@@ -1,0 +1,39 @@
+# Directorios de compilación
+## Directorios generados por .NET/Visual Studio
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+**/[Tt]emp/
+
+# NuGet: Paquetes y Caché
+## Directorio de caché de paquetes (puede ser distinto en versiones antiguas, pero esta es la moderna)
+.vs/
+.vscode/
+
+# Paquetes NuGet, si se descargan localmente (no recomendado, pero ocurre)
+packages/
+
+# Archivos de caché de herramientas .NET (ej. dotnet tool install)
+.config/dotnet-tools.json
+.config/dotnet-tools.rsp
+
+# Logs y Archivos de Base de Datos
+*.log
+*.sqlite
+*.db
+
+# Archivos de configuración de usuario y específicos de IDE
+## Visual Studio
+*.suo
+*.user
+*.vssscc
+*.vspscc
+## Rider/JetBrains IDEs (opcional)
+.idea/
+
+# Archivos generados automáticamente por ASP.NET Core
+## Archivos de recursos web estáticos (ej. si usas Node/npm/Webpack para front-end)
+wwwroot/lib/
+wwwroot/dist/
+node_modules/
