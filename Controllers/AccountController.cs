@@ -6,13 +6,13 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace DnTech_Ecommerce.Controllers
 {
-    public class AuthController : Controller
+    public class AccountController : Controller
     {
         private readonly UserManager<User> _userManager;
         private readonly SignInManager<User> _signInManager;
         private readonly RoleManager<Role> _roleManager;
 
-        public AuthController(UserManager<User> userManager, SignInManager<User> signInManager, RoleManager<Role> roleManager)
+        public AccountController(UserManager<User> userManager, SignInManager<User> signInManager, RoleManager<Role> roleManager)
         {
             _userManager = userManager;
             _signInManager = signInManager;
@@ -80,7 +80,12 @@ namespace DnTech_Ecommerce.Controllers
                     UserName = model.Email,
                     Email = model.Email,
                     FullName = model.FullName,
-                    EmailConfirmed = true,
+                    Address = model.Address,
+                    City = model.City,
+                    PostalCode = model.PostalCode,
+                    Country = model.Country,
+                    PhoneNumber = model.PhoneNumber,
+                    CreatedAt = DateTime.Now,
                     Active = true
                 };
 
@@ -88,11 +93,16 @@ namespace DnTech_Ecommerce.Controllers
 
                 if (result.Succeeded)
                 {
+                    // Asignar rol si se seleccionó uno
                     if (!string.IsNullOrEmpty(model.SelectedRole))
                     {
                         await _userManager.AddToRoleAsync(user, model.SelectedRole);
                     }
-
+                    else
+                    {
+                        await _userManager.AddToRoleAsync(user, "Client");
+                    }
+                    
                     TempData["Success"] = "User created successfully";
                     return RedirectToAction("Index", "Home");
                 }

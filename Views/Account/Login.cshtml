@@ -1,0 +1,232 @@
+﻿@{
+    ViewData["Title"] = "Iniciar Sesión";
+    Layout = "_Layout";
+}
+
+<div class="auth-container">
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="card border-0 shadow-lg">
+                    <div class="row g-0">
+                        <!-- Imagen lateral con color (IZQUIERDA) -->
+                        <div class="col-lg-6 d-none d-lg-block">
+                            <div class="auth-image h-100">
+                                <div class="text-center p-5">
+                                    <i class="bi bi-lock-fill display-1 mb-4"></i>
+                                    <h3 class="fw-bold mb-3">Bienvenido de Nuevo</h3>
+                                    <p>Accede a tu cuenta para ver tus pedidos, favoritos y configuraciones.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Formulario (DERECHA) -->
+                        <div class="col-lg-6">
+                            <div class="card-body p-5">
+                                <div class="text-center mb-4">
+                                    <h2 class="fw-bold">Iniciar Sesión</h2>
+                                    <p class="text-muted">Ingresa tus credenciales para continuar</p>
+                                </div>
+
+                                <form class="needs-validation" novalidate>
+                                    <div class="mb-4">
+                                        <label for="email" class="form-label fw-semibold">Correo Electrónico</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text">
+                                                <i class="bi bi-envelope"></i>
+                                            </span>
+                                            <input type="email"
+                                                   class="form-control"
+                                                   id="email"
+                                                   placeholder="correo@ejemplo.com"
+                                                   required>
+                                            <div class="invalid-feedback">
+                                                Por favor ingresa un correo válido.
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-4">
+                                        <label for="password" class="form-label fw-semibold">Contraseña</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text">
+                                                <i class="bi bi-lock"></i>
+                                            </span>
+                                            <input type="password"
+                                                   class="form-control"
+                                                   id="password"
+                                                   placeholder="Ingresa tu contraseña"
+                                                   required>
+                                            <button class="input-group-text toggle-password" type="button">
+                                                <i class="bi bi-eye"></i>
+                                            </button>
+                                            <div class="invalid-feedback">
+                                                Por favor ingresa tu contraseña.
+                                            </div>
+                                        </div>
+                                        <div class="text-end mt-2">
+                                            <a href="#" class="text-decoration-none text-primary">¿Olvidaste tu contraseña?</a>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-4 form-check">
+                                        <input type="checkbox" class="form-check-input" id="remember">
+                                        <label class="form-check-label" for="remember">Recordarme</label>
+                                    </div>
+
+                                    <div class="d-grid mb-4">
+                                        <button type="submit" class="btn btn-primary btn-lg">
+                                            <i class="bi bi-box-arrow-in-right me-2"></i>Iniciar Sesión
+                                        </button>
+                                    </div>
+
+                                    <div class="divider">
+                                        <span>O continúa con</span>
+                                    </div>
+
+                                    <div class="row g-2 mb-4">
+                                        <div class="col-md-6">
+                                            <button type="button" class="btn btn-outline-dark w-100">
+                                                <i class="bi bi-google me-2"></i>Google
+                                            </button>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <button type="button" class="btn btn-outline-primary w-100">
+                                                <i class="bi bi-facebook me-2"></i>Facebook
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div class="text-center">
+                                        <p class="mb-0">
+                                            ¿No tienes una cuenta?
+                                            <a asp-controller="Account" asp-action="Register" class="text-decoration-none fw-semibold text-primary">Regístrate</a>
+                                        </p>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+
+@* @{
+    ViewData["Title"] = "Iniciar Sesión";
+    Layout = "_Layout";
+}
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-lg">
+                <div class="row g-0">
+                    <!-- Imagen lateral -->
+                    <div class="col-lg-6 d-none d-lg-block">
+                        <div class="auth-image">
+                            <div class="text-center">
+                                <i class="bi bi-lock-fill display-1 mb-4"></i>
+                                <h3 class="fw-bold mb-3">Bienvenido de Nuevo</h3>
+                                <p>Accede a tu cuenta para ver tus pedidos, favoritos y configuraciones.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Formulario -->
+                    <div class="col-lg-6">
+                        <div class="card-body p-5">
+                            <div class="text-center mb-4">
+                                <h2 class="fw-bold">Iniciar Sesión</h2>
+                                <p class="text-muted">Ingresa tus credenciales para continuar</p>
+                            </div>
+
+                            <form class="needs-validation" novalidate>
+                                <div class="mb-4">
+                                    <label for="email" class="form-label fw-semibold">Correo Electrónico</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">
+                                            <i class="bi bi-envelope"></i>
+                                        </span>
+                                        <input type="email"
+                                               class="form-control"
+                                               id="email"
+                                               placeholder="correo@ejemplo.com"
+                                               required>
+                                        <div class="invalid-feedback">
+                                            Por favor ingresa un correo válido.
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="mb-4">
+                                    <label for="password" class="form-label fw-semibold">Contraseña</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">
+                                            <i class="bi bi-lock"></i>
+                                        </span>
+                                        <input type="password"
+                                               class="form-control"
+                                               id="password"
+                                               placeholder="Ingresa tu contraseña"
+                                               required>
+                                        <button class="input-group-text toggle-password" type="button">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                        <div class="invalid-feedback">
+                                            Por favor ingresa tu contraseña.
+                                        </div>
+                                    </div>
+                                    <div class="text-end mt-2">
+                                        <a href="#" class="text-decoration-none text-primary">¿Olvidaste tu contraseña?</a>
+                                    </div>
+                                </div>
+
+                                <div class="mb-4 form-check">
+                                    <input type="checkbox" class="form-check-input" id="remember">
+                                    <label class="form-check-label" for="remember">Recordarme</label>
+                                </div>
+
+                                <div class="d-grid mb-4">
+                                    <button type="submit" class="btn btn-primary btn-lg">
+                                        <i class="bi bi-box-arrow-in-right me-2"></i>Iniciar Sesión
+                                    </button>
+                                </div>
+
+                                <div class="divider">
+                                    <span>O continúa con</span>
+                                </div>
+
+                                <div class="row g-2 mb-4">
+                                    <div class="col-md-6">
+                                        <button type="button" class="btn btn-outline-dark w-100">
+                                            <i class="bi bi-google me-2"></i>Google
+                                        </button>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <button type="button" class="btn btn-outline-primary w-100">
+                                            <i class="bi bi-facebook me-2"></i>Facebook
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="text-center">
+                                    <p class="mb-0">
+                                        ¿No tienes una cuenta?
+                                        <a href="/Account/Register" class="text-decoration-none fw-semibold text-primary">Regístrate</a>
+                                    </p>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+ *@

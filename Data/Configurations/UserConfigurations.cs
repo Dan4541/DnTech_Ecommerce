@@ -12,6 +12,19 @@ namespace DnTech_Ecommerce.Data.Configurations
                 .IsRequired()
                 .HasMaxLength(200);
 
+            builder.Property(u => u.Address)
+                .IsRequired()
+                .HasMaxLength(200);
+            
+            builder.Property(u => u.City)
+                .HasMaxLength(50);
+
+            builder.Property(u => u.PostalCode)
+                .HasMaxLength(10);
+
+            builder.Property(u => u.Country)
+                .HasMaxLength(50);
+
             builder.Property(u => u.Active)
                 .IsRequired()
                 .HasDefaultValue(true);
