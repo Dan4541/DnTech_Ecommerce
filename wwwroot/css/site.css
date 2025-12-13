@@ -325,6 +325,33 @@ footer {
     left: -5px;
 }
 
+/* Estilos específicos para la vista de perfil */
+.card-header.bg-white {
+    border-bottom: 2px solid #f0f0f0;
+}
+
+.feature-icon.mx-auto {
+    width: 80px;
+    height: 80px;
+    background: var(--gradient-primary);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 32px;
+}
+
+.alert-success {
+    background-color: rgba(40, 167, 69, 0.1);
+    border-color: rgba(40, 167, 69, 0.2);
+    color: #155724;
+}
+
+hr.my-4 {
+    border-color: #e9ecef;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     body {
