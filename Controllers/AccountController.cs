@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace DnTech_Ecommerce.Controllers
 {
+    //[ApiController]
+    //[Route("[controller]/[action]")]
     public class AccountController : Controller
     {
         private readonly UserManager<User> _userManager;
@@ -119,6 +121,7 @@ namespace DnTech_Ecommerce.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Client")]
         public async Task<IActionResult> Logout()
         {
             await _signInManager.SignOutAsync();
@@ -144,6 +147,7 @@ namespace DnTech_Ecommerce.Controllers
 
         // GET: /Account/Profile
         [HttpGet]
+        [Authorize(Roles = "Client")]
         public async Task<IActionResult> Profile()
         {
             var user = await _userManager.GetUserAsync(User);
@@ -171,6 +175,7 @@ namespace DnTech_Ecommerce.Controllers
         // POST: /Account/Profile
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = "Client")]
         public async Task<IActionResult> Profile(ProfileViewModel model)
         {
             if (!ModelState.IsValid)

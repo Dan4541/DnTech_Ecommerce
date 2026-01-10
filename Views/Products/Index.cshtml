@@ -5,6 +5,14 @@
     Layout = "_Layout";
 }
 
+<!-- IMPORTANTE: Agregar el token antiforgery -->
+<form method="post" style="display:none;">
+    @Html.AntiForgeryToken()
+</form>
+
+<!-- Toast Container -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999"></div>
+
 <div class="container py-5">
     <div class="row">
         <!-- Sidebar de filtros -->
@@ -150,27 +158,324 @@
                         </div>
                     }
                 </div>
-
-                <!-- Paginación (opcional para después) -->
-                @* <nav aria-label="Page navigation" class="mt-5">
-                    <ul class="pagination justify-content-center">
-                        <li class="page-item disabled">
-                            <a class="page-link" href="#" tabindex="-1">Anterior</a>
-                        </li>
-                        <li class="page-item active"><a class="page-link" href="#">1</a></li>
-                        <li class="page-item"><a class="page-link" href="#">2</a></li>
-                        <li class="page-item"><a class="page-link" href="#">3</a></li>
-                        <li class="page-item">
-                            <a class="page-link" href="#">Siguiente</a>
-                        </li>
-                    </ul>
-                </nav> *@
             }
         </div>
     </div>
 </div>
 
 @section Scripts {
+    <script>
+        // Función para obtener el token antiforgery
+        function getToken() {
+            return document.querySelector('input[name="__RequestVerificationToken"]').value;
+        }
+
+        // Función para actualizar el contador del carrito en el navbar
+        function updateCartCount() {
+            fetch('@Url.Action("GetCartCount", "Cart")')
+                .then(response => response.json())
+                .then(data => {
+                    const cartBadge = document.querySelector('.navbar .badge.bg-danger');
+                    if (cartBadge) {
+                        cartBadge.textContent = data.count;
+                    }
+                })
+                .catch(error => console.error('Error al actualizar contador:', error));
+        }
+
+        // Función para mostrar notificaciones con Bootstrap Toast
+        function showNotification(message, type) {
+            const iconMap = {
+                success: 'bi-check-circle-fill',
+                error: 'bi-exclamation-circle-fill',
+                warning: 'bi-exclamation-triangle-fill',
+                info: 'bi-info-circle-fill'
+            };
+
+            const bgMap = {
+                success: 'bg-success',
+                error: 'bg-danger',
+                warning: 'bg-warning',
+                info: 'bg-info'
+            };
+
+            const icon = iconMap[type] || iconMap.info;
+            const bgClass = bgMap[type] || bgMap.info;
+
+            const toastHtml = `
+                <div class="toast align-items-center text-white ${bgClass} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                    <div class="d-flex">
+                        <div class="toast-body d-flex align-items-center">
+                            <i class="bi ${icon} fs-5 me-2"></i>
+                            <span>${message}</span>
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                    </div>
+                </div>
+            `;
+
+            const toastContainer = document.querySelector('.toast-container');
+            if (toastContainer) {
+                toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+                const toastElement = toastContainer.lastElementChild;
+
+                // Crear instancia del toast con duración de 5 segundos
+                const toast = new bootstrap.Toast(toastElement, {
+                    delay: 5000,
+                    animation: true
+                });
+
+                toast.show();
+
+                // Eliminar el toast del DOM después de que se oculte
+                toastElement.addEventListener('hidden.bs.toast', () => {
+                    toastElement.remove();
+                });
+            }
+        }
+
+        // Agregar al carrito
+        document.querySelectorAll('.add-to-cart').forEach(button => {
+            button.addEventListener('click', function() {
+                const productId = parseInt(this.getAttribute('data-product-id'));
+
+                // Deshabilitar botón temporalmente
+                const originalText = this.innerHTML;
+                this.disabled = true;
+                this.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Agregando...';
+
+                // Crear FormData
+                const formData = new FormData();
+                formData.append('ProductId', productId);
+                formData.append('Quantity', 1);
+                formData.append('__RequestVerificationToken', getToken());
+
+                fetch('@Url.Action("AddToCart", "Cart")', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    console.log('Response status:', response.status);
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Response data:', data);
+
+                    if (data.success) {
+                        showNotification(data.message, 'success');
+                        updateCartCount();
+                    } else {
+                        showNotification(data.message || 'Error al agregar el producto', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification('Error de conexión. Intenta nuevamente.', 'error');
+                })
+                .finally(() => {
+                    // Restaurar botón
+                    this.disabled = false;
+                    this.innerHTML = originalText;
+                });
+            });
+        });
+
+        // Actualizar contador al cargar la página
+        document.addEventListener('DOMContentLoaded', function() {
+            updateCartCount();
+        });
+    </script>
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+@* @using DnTech_Ecommerce.ViewModels
+@model ProductViewModel
+@{
+    ViewData["Title"] = "Productos";
+    Layout = "_Layout";
+}
+
+<div class="container py-5">
+    <div class="row">
+        <!-- Sidebar de filtros -->
+        <div class="col-lg-3 mb-4">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0 fw-bold"><i class="bi bi-filter me-2"></i>Filtros</h5>
+                </div>
+                <div class="card-body">
+                    <form method="get" asp-action="Index">
+                        <!-- Búsqueda -->
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold">Buscar</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" name="SearchTerm" value="@Model.SearchTerm" placeholder="Buscar productos...">
+                                <button class="btn btn-primary" type="submit">
+                                    <i class="bi bi-search"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Categorías -->
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold">Categorías</label>
+                            <div class="list-group list-group-flush">
+                                @if (Model.Categories != null)
+                                {
+                                    @foreach (var category in Model.Categories)
+                                    {
+                                        <a href="@Url.Action("Category", new { slug = category.Text.ToLower() })"
+                                           class="list-group-item list-group-item-action border-0 py-2">
+                                            @category.Text
+                                        </a>
+                                    }
+                                }
+                            </div>
+                        </div>
+                        
+                        <!-- Rango de precios -->
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold">Rango de precio</label>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <input type="number" class="form-control" name="MinPrice" value="@Model.MinPrice" placeholder="Mín" min="0">
+                                </div>
+                                <div class="col-6">
+                                    <input type="number" class="form-control" name="MaxPrice" value="@Model.MaxPrice" placeholder="Máx" min="0">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Ordenar -->
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold">Ordenar por</label>
+                            <select class="form-select" name="SortBy" onchange="this.form.submit()">
+                                <option value="newest" selected="@(Model.SortBy == "newest")">Más recientes</option>
+                                <option value="price-low" selected="@(Model.SortBy == "price-low")">Precio: menor a mayor</option>
+                                <option value="price-high" selected="@(Model.SortBy == "price-high")">Precio: mayor a menor</option>
+                                <option value="name" selected="@(Model.SortBy == "name")">Nombre A-Z</option>
+                                <option value="popular" selected="@(Model.SortBy == "popular")">Más populares</option>
+                            </select>
+                        </div>
+
+                        <!-- Botones -->
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">Aplicar filtros</button>
+                            <a href="@Url.Action("Index")" class="btn btn-outline-secondary">Limpiar filtros</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lista de productos -->
+        <div class="col-lg-9">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="fw-bold">Nuestros Productos</h1>
+                <div class="d-flex gap-2">
+                    <a href="@Url.Action("Featured")" class="btn btn-outline-primary btn-sm">Destacados</a>
+                    <a href="@Url.Action("OnSale")" class="btn btn-outline-danger btn-sm">Ofertas</a>
+                    <a href="@Url.Action("New")" class="btn btn-outline-success btn-sm">Nuevos</a>
+                </div>
+            </div>
+
+            @if (Model.Products == null || !Model.Products.Any())
+            {
+                <div class="text-center py-5">
+                    <i class="bi bi-search display-1 text-muted mb-3"></i>
+                    <h4>No se encontraron productos</h4>
+                    <p class="text-muted">Intenta con otros filtros de búsqueda.</p>
+                    <a href="@Url.Action("Index")" class="btn btn-primary">Ver todos los productos</a>
+                </div>
+            }
+            else
+            {
+                <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+                    @foreach (var product in Model.Products)
+                    {
+                        <div class="col">
+                            <div class="card product-card h-100 border-0 shadow-sm">
+                                @if (product.IsOnSale)
+                                {
+                                    <span class="badge-discount">-@(((product.OldPrice - product.Price) / product.OldPrice * 100)?.ToString("0") ?? "20")%</span>
+                                }
+                                @if (product.IsNew)
+                                {
+                                    <span class="badge-new">Nuevo</span>
+                                }
+
+                                <img src="@product.MainImageUrl" class="card-img-top" alt="@product.Name" style="height: 200px; object-fit: cover;">
+
+                                <div class="card-body d-flex flex-column">
+                                    <h5 class="card-title fw-bold">@product.Name</h5>
+                                    <p class="card-text text-muted small">@(product.Description.Length > 100 ? product.Description.Substring(0, 100) + "..." : product.Description)</p>
+
+                                    <div class="mt-auto">
+                                        <div class="d-flex justify-content-between align-items-center mb-3">
+                                            <span class="price-tag">$@product.Price.ToString("N2")</span>
+                                            @if (product.OldPrice.HasValue && product.OldPrice > product.Price)
+                                            {
+                                                <span class="text-decoration-line-through text-muted">$@product.OldPrice?.ToString("N2")</span>
+                                            }
+                                        </div>
+
+                                        <div class="d-grid gap-2">
+                                            <a href="@Url.Action("Details", new { id = product.Id })" class="btn btn-outline-primary">
+                                                <i class="bi bi-eye me-2"></i>Ver detalles
+                                            </a>
+                                            <button class="btn btn-primary add-to-cart" data-product-id="@product.Id">
+                                                <i class="bi bi-cart-plus me-2"></i>Agregar al carrito
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="card-footer bg-white border-0">
+                                    <div class="d-flex justify-content-between align-items-center small text-muted">
+                                        <span><i class="bi bi-grid me-1"></i>@product.Category?.Name</span>
+                                        <span><i class="bi bi-box me-1"></i>@product.StockQuantity en stock</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                // Paginación
+            }
+        </div>
+    </div>
+</div> *@
+
+@* @section Scripts {
     <script>
         // Agregar al carrito
         document.querySelectorAll('.add-to-cart').forEach(button => {
@@ -213,4 +518,4 @@
             console.log('Actualizar contador del carrito');
         }
     </script>
-}
+} *@

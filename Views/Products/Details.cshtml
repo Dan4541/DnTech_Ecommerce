@@ -4,6 +4,14 @@
     Layout = "_Layout";
 }
 
+<!-- IMPORTANTE: Agregar el token antiforgery -->
+<form method="post" style="display:none;">
+    @Html.AntiForgeryToken()
+</form>
+
+<!-- Toast Container -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999"></div>
+
 <div class="container py-5">
     <nav aria-label="breadcrumb">
         <ol class="breadcrumb">
@@ -32,6 +40,363 @@
                 <img src="@Model.MainImageUrl" class="img-thumbnail" style="width: 80px; height: 80px; cursor: pointer;" 
                      onclick="changeMainImage(this.src)" alt="Miniatura 1">
             </div> *@
+        </div>
+
+        <!-- Información del producto -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h1 class="fw-bold mb-3">@Model.Name</h1>
+
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="me-3">
+                            @for (int i = 1; i <= 5; i++)
+                            {
+                                <i class="bi @(i <= Model.Rating ? "bi-star-fill" : "bi-star") text-warning"></i>
+                            }
+                        </div>
+                        <span class="text-muted">(@Model.ReviewCount reseñas)</span>
+                    </div>
+
+                    <div class="mb-4">
+                        <span class="display-6 fw-bold text-primary">$@Model.Price.ToString("N2")</span>
+                        @if (Model.OldPrice.HasValue && Model.OldPrice > Model.Price)
+                        {
+                            <span class="text-decoration-line-through text-muted fs-4 ms-2">$@Model.OldPrice?.ToString("N2")</span>
+                        }
+                    </div>
+
+                    <div class="mb-4">
+                        <h5 class="fw-bold">Descripción</h5>
+                        <p class="text-muted">@Model.Description</p>
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <h6 class="fw-bold">SKU</h6>
+                                <p class="text-muted">@Model.Sku</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <h6 class="fw-bold">Disponibilidad</h6>
+                                @if (Model.StockQuantity > 0)
+                                {
+                                    <span class="badge bg-success">
+                                        <i class="bi bi-check-circle me-1"></i>En stock (@Model.StockQuantity unidades)
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-danger">
+                                        <i class="bi bi-x-circle me-1"></i>Agotado
+                                    </span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Selector de cantidad -->
+                    <div class="mb-4">
+                        <label for="quantity" class="form-label fw-bold">Cantidad</label>
+                        <div class="input-group" style="max-width: 150px;">
+                            <button class="btn btn-outline-secondary" type="button" id="decreaseQuantity">
+                                <i class="bi bi-dash"></i>
+                            </button>
+                            <input type="number" class="form-control text-center" id="quantity" value="1" min="1" max="@Model.StockQuantity">
+                            <button class="btn btn-outline-secondary" type="button" id="increaseQuantity">
+                                <i class="bi bi-plus"></i>
+                            </button>
+                        </div>
+                        <small class="text-muted">Máximo: @Model.StockQuantity unidades</small>
+                    </div>
+
+                    <!-- Botones de acción -->
+                    <div class="d-grid gap-2 d-md-flex">
+                        @if (Model.StockQuantity > 0)
+                        {
+                            <button class="btn btn-primary btn-lg flex-grow-1 add-to-cart-details" data-product-id="@Model.Id">
+                                <i class="bi bi-cart-plus me-2"></i>Agregar al carrito
+                            </button>
+                        }
+                        else
+                        {
+                            <button class="btn btn-secondary btn-lg flex-grow-1" disabled>
+                                <i class="bi bi-x-circle me-2"></i>Agotado
+                            </button>
+                        }
+                        <button class="btn btn-outline-primary btn-lg" id="addToWishlist">
+                            <i class="bi bi-heart me-2"></i>Favoritos
+                        </button>
+                    </div>
+
+                    <!-- Botón de volver -->
+                    <div class="mt-3">
+                        <a asp-controller="Products" asp-action="Index" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-2"></i>Volver a productos
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Productos relacionados -->
+    @if (ViewData["RelatedProducts"] is List<Product> relatedProducts && relatedProducts.Any())
+    {
+        <div class="mt-5">
+            <h3 class="fw-bold mb-4">Productos relacionados</h3>
+            <div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4">
+                @foreach (var product in relatedProducts)
+                {
+                    <div class="col">
+                        <div class="card product-card h-100 border-0 shadow-sm">
+                            <a href="@Url.Action("Details", new { id = product.Id })" class="text-decoration-none">
+                                <img src="@product.MainImageUrl" class="card-img-top" alt="@product.Name" style="height: 150px; object-fit: cover;">
+                                <div class="card-body">
+                                    <h6 class="card-title fw-bold text-dark">@product.Name</h6>
+                                    <p class="card-text text-primary fw-bold mb-0">$@product.Price.ToString("N2")</p>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script>
+        // Función para obtener el token antiforgery
+        function getToken() {
+            return document.querySelector('input[name="__RequestVerificationToken"]').value;
+        }
+
+        // Función para actualizar el contador del carrito en el navbar
+        function updateCartCount() {
+            fetch('@Url.Action("GetCartCount", "Cart")')
+                .then(response => response.json())
+                .then(data => {
+                    const cartBadge = document.querySelector('.navbar .badge.bg-danger');
+                    if (cartBadge) {
+                        cartBadge.textContent = data.count;
+                    }
+                })
+                .catch(error => console.error('Error al actualizar contador:', error));
+        }
+
+        // Función para mostrar notificaciones con Bootstrap Toast
+        function showNotification(message, type) {
+            const iconMap = {
+                success: 'bi-check-circle-fill',
+                error: 'bi-exclamation-circle-fill',
+                warning: 'bi-exclamation-triangle-fill',
+                info: 'bi-info-circle-fill'
+            };
+
+            const bgMap = {
+                success: 'bg-success',
+                error: 'bg-danger',
+                warning: 'bg-warning',
+                info: 'bg-info'
+            };
+
+            const icon = iconMap[type] || iconMap.info;
+            const bgClass = bgMap[type] || bgMap.info;
+
+            const toastHtml = `
+                <div class="toast align-items-center text-white ${bgClass} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                    <div class="d-flex">
+                        <div class="toast-body d-flex align-items-center">
+                            <i class="bi ${icon} fs-5 me-2"></i>
+                            <span>${message}</span>
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                    </div>
+                </div>
+            `;
+
+            const toastContainer = document.querySelector('.toast-container');
+            if (toastContainer) {
+                toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+                const toastElement = toastContainer.lastElementChild;
+
+                // Crear instancia del toast con duración de 5 segundos
+                const toast = new bootstrap.Toast(toastElement, {
+                    delay: 5000,
+                    animation: true
+                });
+
+                toast.show();
+
+                // Eliminar el toast del DOM después de que se oculte
+                toastElement.addEventListener('hidden.bs.toast', () => {
+                    toastElement.remove();
+                });
+            }
+        }
+
+        // Control de cantidad - Disminuir
+        document.getElementById('decreaseQuantity').addEventListener('click', function() {
+            const quantityInput = document.getElementById('quantity');
+            let value = parseInt(quantityInput.value);
+            if (value > 1) {
+                quantityInput.value = value - 1;
+            }
+        });
+
+        // Control de cantidad - Aumentar
+        document.getElementById('increaseQuantity').addEventListener('click', function() {
+            const quantityInput = document.getElementById('quantity');
+            let value = parseInt(quantityInput.value);
+            const maxStock = parseInt('@Model.StockQuantity');
+            if (value < maxStock) {
+                quantityInput.value = value + 1;
+            } else {
+                showNotification(`Máximo ${maxStock} unidades disponibles`, 'warning');
+            }
+        });
+
+        // Validar input manual de cantidad
+        document.getElementById('quantity').addEventListener('change', function() {
+            const maxStock = parseInt('@Model.StockQuantity');
+            let value = parseInt(this.value);
+
+            if (value < 1) {
+                this.value = 1;
+                showNotification('La cantidad mínima es 1', 'warning');
+            } else if (value > maxStock) {
+                this.value = maxStock;
+                showNotification(`Máximo ${maxStock} unidades disponibles`, 'warning');
+            }
+        });
+
+        // Cambiar imagen principal (si tuvieras miniaturas)
+        function changeMainImage(src) {
+            document.getElementById('mainProductImage').src = src;
+        }
+
+        // Agregar al carrito desde detalles
+        document.querySelector('.add-to-cart-details')?.addEventListener('click', function() {
+            const productId = parseInt(this.getAttribute('data-product-id'));
+            const quantity = parseInt(document.getElementById('quantity').value);
+            const maxStock = parseInt('@Model.StockQuantity');
+
+            // Validar cantidad
+            if (quantity < 1 || quantity > maxStock) {
+                showNotification(`Por favor selecciona una cantidad válida (1-${maxStock})`, 'warning');
+                return;
+            }
+
+            // Deshabilitar botón temporalmente
+            const originalText = this.innerHTML;
+            this.disabled = true;
+            this.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Agregando...';
+
+            // Crear FormData
+            const formData = new FormData();
+            formData.append('ProductId', productId);
+            formData.append('Quantity', quantity);
+            formData.append('__RequestVerificationToken', getToken());
+
+            fetch('@Url.Action("AddToCart", "Cart")', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                console.log('Response status:', response.status);
+                return response.json();
+            })
+            .then(data => {
+                console.log('Response data:', data);
+
+                if (data.success) {
+                    showNotification(data.message + ` (${quantity} ${quantity > 1 ? 'unidades' : 'unidad'})`, 'success');
+                    updateCartCount();
+
+                    // Opcional: Resetear cantidad a 1 después de agregar
+                    document.getElementById('quantity').value = 1;
+                } else {
+                    showNotification(data.message || 'Error al agregar el producto', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('Error de conexión. Intenta nuevamente.', 'error');
+            })
+            .finally(() => {
+                // Restaurar botón
+                this.disabled = false;
+                this.innerHTML = originalText;
+            });
+        });
+
+        // Agregar a favoritos (placeholder)
+        document.getElementById('addToWishlist')?.addEventListener('click', function() {
+            showNotification('Función de favoritos próximamente disponible', 'info');
+        });
+
+        // Actualizar contador al cargar la página
+        document.addEventListener('DOMContentLoaded', function() {
+            updateCartCount();
+        });
+    </script>
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+@* @model DnTech_Ecommerce.Models.Product
+@{
+    ViewData["Title"] = Model.Name;
+    Layout = "_Layout";
+}
+
+<div class="container py-5">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a asp-controller="Home" asp-action="Index">Inicio</a></li>
+            <li class="breadcrumb-item"><a asp-controller="Products" asp-action="Index">Productos</a></li>
+            <li class="breadcrumb-item"><a asp-controller="Products" asp-action="Category" asp-route-slug="@Model.Category?.Slug">@Model.Category?.Name</a></li>
+            <li class="breadcrumb-item active" aria-current="page">@Model.Name</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <!-- Imágenes del producto -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm mb-4">
+                <img src="@Model.MainImageUrl" class="card-img-top rounded" alt="@Model.Name" id="mainProductImage" style="height: 400px; object-fit: contain;">
+                @if (Model.IsOnSale)
+                {
+                    <span class="badge-discount" style="top: 20px; left: 20px; font-size: 1.1rem;">
+                        -@(((Model.OldPrice - Model.Price) / Model.OldPrice * 100)?.ToString("0") ?? "20")%
+                    </span>
+                }
+            </div>            
         </div>
 
         <!-- Información del producto -->
@@ -136,9 +501,9 @@
             </div>
         </div>
     }
-</div>
+</div> *@
 
-@section Scripts {
+@* @section Scripts {
     <script>
         // Control de cantidad
         document.getElementById('decreaseQuantity').addEventListener('click', function() {
@@ -196,4 +561,4 @@
             console.log('Actualizar contador del carrito');
         }
     </script>
-}
+} *@
