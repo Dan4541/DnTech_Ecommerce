@@ -407,6 +407,47 @@ hr.my-4 {
     }
 }
 
+    /* Estilos para el checkout */
+    .payment-method-option {
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .payment-method-option:hover {
+        background-color: #f8f9fa !important;
+        border-color: #0d6efd !important;
+    }
+
+    .payment-method-option .form-check-input:checked ~ .form-check-label {
+        color: #0d6efd;
+    }
+
+    .success-animation i {
+        animation: successPulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes successPulse {
+        0%, 100% {
+            transform: scale(1);
+        }
+
+        50% {
+            transform: scale(1.05);
+        }
+    }
+
+    /* Estilos para impresión */
+    @media print {
+        .navbar, footer, .btn, .sticky-top {
+            display: none !important;
+        }
+
+        .card {
+            border: 1px solid #dee2e6 !important;
+            box-shadow: none !important;
+        }
+    }
+
 
 /* Responsive */
 @media (max-width: 768px) {

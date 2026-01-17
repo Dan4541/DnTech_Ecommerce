@@ -4,6 +4,14 @@
     Layout = "_Layout";
 }
 
+<!-- Token antiforgery -->
+<form method="post" style="display:none;">
+    @Html.AntiForgeryToken()
+</form>
+
+<!-- Toast Container -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999"></div>
+
 <div class="container py-5">
     <!-- Breadcrumb -->
     <nav aria-label="breadcrumb" class="mb-4">
@@ -69,15 +77,16 @@
                                 </div>
 
                                 <!-- Contador de cantidad -->
-                                <div class="col-md-3 col-6">
-                                    <div class="input-group" style="max-width: 120px;">
+                                <div class="col-md-3 col-6 mt-3 mt-md-0">
+                                    <label class="form-label small text-muted mb-1">Cantidad</label>
+                                    <div class="input-group input-group-sm" style="max-width: 130px;">
                                         <button class="btn btn-outline-secondary decrease-quantity" type="button"
                                                 data-item-id="@item.Id" data-min="1">
                                             <i class="bi bi-dash"></i>
                                         </button>
                                         <input type="number" class="form-control text-center quantity-input"
                                                value="@item.Quantity" min="1" max="@item.MaxStock"
-                                               data-item-id="@item.Id" data-price="@item.Price">
+                                               data-item-id="@item.Id" data-price="@item.Price" readonly>
                                         <button class="btn btn-outline-secondary increase-quantity" type="button"
                                                 data-item-id="@item.Id" data-max="@item.MaxStock">
                                             <i class="bi bi-plus"></i>
@@ -87,7 +96,7 @@
                                 </div>
 
                                 <!-- Total y acciones -->
-                                <div class="col-md-3 col-6 text-end">
+                                <div class="col-md-3 col-6 text-end mt-3 mt-md-0">
                                     <div class="mb-2">
                                         <h6 class="fw-bold item-total">$@item.TotalPrice.ToString("N2")</h6>
                                     </div>
@@ -124,14 +133,16 @@
                         <!-- Envío -->
                         <div class="d-flex justify-content-between mb-2">
                             <span class="text-muted">Envío</span>
-                            @if (Model.ShippingCost == 0)
-                            {
-                                <span class="text-success fw-bold">¡Gratis!</span>
-                            }
-                            else
-                            {
-                                <span class="fw-bold" id="shipping">$@Model.ShippingCost.ToString("N2")</span>
-                            }
+                            <span id="shipping-display">
+                                @if (Model.ShippingCost == 0)
+                                {
+                                    <span class="text-success fw-bold">¡Gratis!</span>
+                                }
+                                else
+                                {
+                                    <span class="fw-bold">$@Model.ShippingCost.ToString("N2")</span>
+                                }
+                            </span>
                         </div>
 
                         <!-- Impuestos -->
@@ -149,23 +160,25 @@
                         </div>
 
                         <!-- Información de envío gratis -->
-                        @if (Model.Subtotal < 500)
-                        {
-                            <div class="alert alert-info alert-dismissible fade show mb-4" role="alert">
-                                <i class="bi bi-info-circle me-2"></i>
-                                <strong>¡Falta poco para envío gratis!</strong>
-                                Agrega <strong>$@((500 - Model.Subtotal).ToString("N2"))</strong> más a tu carrito.
-                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                            </div>
-                        }
-                        else
-                        {
-                            <div class="alert alert-success alert-dismissible fade show mb-4" role="alert">
-                                <i class="bi bi-check-circle me-2"></i>
-                                <strong>¡Felicidades!</strong> Tienes envío gratis en tu pedido.
-                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                            </div>
-                        }
+                        <div id="shipping-alert">
+                            @if (Model.Subtotal < 500)
+                            {
+                                <div class="alert alert-info alert-dismissible fade show mb-4" role="alert">
+                                    <i class="bi bi-info-circle me-2"></i>
+                                    <strong>¡Falta poco para envío gratis!</strong>
+                                    Agrega <strong id="shipping-remaining">$@((500 - Model.Subtotal).ToString("N2"))</strong> más a tu carrito.
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="alert alert-success alert-dismissible fade show mb-4" role="alert">
+                                    <i class="bi bi-check-circle me-2"></i>
+                                    <strong>¡Felicidades!</strong> Tienes envío gratis en tu pedido.
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                </div>
+                            }
+                        </div>
 
                         <!-- Botón de checkout -->
                         <div class="d-grid">
@@ -199,29 +212,59 @@
 
         // Actualizar contador del carrito en el navbar
         function updateCartCount(count) {
-            const cartBadge = document.querySelector('.navbar .badge.bg-danger');
+            const cartBadge = document.getElementById('cartBadge');
             if (cartBadge) {
-                cartBadge.textContent = count;
+                if (count > 0) {
+                    cartBadge.textContent = count;
+                    cartBadge.style.display = 'inline-block';
+                } else {
+                    cartBadge.style.display = 'none';
+                }
             }
         }
 
-        // Actualizar cantidad
-        document.querySelectorAll('.quantity-input').forEach(input => {
-            input.addEventListener('change', function() {
-                const itemId = this.getAttribute('data-item-id');
-                const quantity = parseInt(this.value);
+        // Función para mostrar notificaciones
+        function showNotification(message, type) {
+            const iconMap = {
+                success: 'bi-check-circle-fill',
+                error: 'bi-exclamation-circle-fill',
+                warning: 'bi-exclamation-triangle-fill',
+                info: 'bi-info-circle-fill'
+            };
 
-                if (quantity < 1 || quantity > parseInt(this.max)) {
-                    this.value = this.defaultValue;
-                    alert('Cantidad no válida');
-                    return;
-                }
+            const bgMap = {
+                success: 'bg-success',
+                error: 'bg-danger',
+                warning: 'bg-warning',
+                info: 'bg-info'
+            };
 
-                updateQuantity(itemId, quantity);
-            });
-        });
+            const icon = iconMap[type] || iconMap.info;
+            const bgClass = bgMap[type] || bgMap.info;
 
-        // Botones de aumentar/disminuir
+            const toastHtml = `
+                <div class="toast align-items-center text-white ${bgClass} border-0" role="alert">
+                    <div class="d-flex">
+                        <div class="toast-body d-flex align-items-center">
+                            <i class="bi ${icon} fs-5 me-2"></i>
+                            <span>${message}</span>
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                    </div>
+                </div>
+            `;
+
+            const toastContainer = document.querySelector('.toast-container');
+            if (toastContainer) {
+                toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+                const toastElement = toastContainer.lastElementChild;
+                const toast = new bootstrap.Toast(toastElement, { delay: 5000 });
+                toast.show();
+                toastElement.addEventListener('hidden.bs.toast', () => toastElement.remove());
+            }
+        }
+
+        // Botones de aumentar cantidad
         document.querySelectorAll('.increase-quantity').forEach(button => {
             button.addEventListener('click', function() {
                 const itemId = this.getAttribute('data-item-id');
@@ -231,24 +274,22 @@
 
                 if (quantity < max) {
                     quantity++;
-                    input.value = quantity;
                     updateQuantity(itemId, quantity);
                 } else {
-                    alert(`Máximo ${max} unidades disponibles`);
+                    showNotification(`Máximo ${max} unidades disponibles`, 'warning');
                 }
             });
         });
 
+        // Botones de disminuir cantidad
         document.querySelectorAll('.decrease-quantity').forEach(button => {
             button.addEventListener('click', function() {
                 const itemId = this.getAttribute('data-item-id');
-                const min = parseInt(this.getAttribute('data-min'));
                 const input = document.querySelector(`.quantity-input[data-item-id="${itemId}"]`);
                 let quantity = parseInt(input.value);
 
-                if (quantity > min) {
+                if (quantity > 1) {
                     quantity--;
-                    input.value = quantity;
                     updateQuantity(itemId, quantity);
                 }
             });
@@ -256,58 +297,55 @@
 
         // Función para actualizar cantidad
         function updateQuantity(itemId, quantity) {
-            fetch('/Cart/Update?id=' + itemId + '&quantity=' + quantity, {
+            const formData = new FormData();
+            formData.append('id', itemId);
+            formData.append('quantity', quantity);
+            formData.append('__RequestVerificationToken', getToken());
+
+            fetch('/Cart/Update', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'RequestVerificationToken': getToken()
-                }
+                body: formData
             })
             .then(response => response.json())
             .then(data => {
-                if (data.success) {
-                    // Actualizar total del item
-                    const itemRow = document.querySelector(`[data-item-id="${itemId}"]`);
-                    const price = parseFloat(itemRow.querySelector('.quantity-input').getAttribute('data-price'));
-                    const itemTotal = itemRow.querySelector('.item-total');
-                    itemTotal.textContent = '$' + (price * quantity).toFixed(2);
+                console.log('Response:', data);
 
-                    // Actualizar resumen
+                if (data.success) {
+                    // Actualizar input
+                    const input = document.querySelector(`.quantity-input[data-item-id="${itemId}"]`);
+                    input.value = quantity;
+
+                    // Actualizar total del item (usando directamente el valor del servidor)
+                    const itemRow = document.querySelector(`[data-item-id="${itemId}"]`);
+                    const itemTotal = itemRow.querySelector('.item-total');
+                    itemTotal.textContent = data.itemTotal;
+
+                    // Actualizar resumen (usando directamente los valores del servidor)
                     document.getElementById('subtotal').textContent = data.subtotal;
-                    document.getElementById('shipping').textContent = data.shipping;
                     document.getElementById('tax').textContent = data.tax;
                     document.getElementById('total').textContent = data.total;
 
-                    // Verificar envío gratis
-                    const subtotal = parseFloat(data.subtotal.replace(/[^0-9.-]+/g, ""));
-                    const shippingAlert = document.querySelector('.alert-info, .alert-success');
-                    if (subtotal < 500) {
-                        if (shippingAlert) {
-                            shippingAlert.className = 'alert alert-info alert-dismissible fade show mb-4';
-                            shippingAlert.innerHTML = `
-                                <i class="bi bi-info-circle me-2"></i>
-                                <strong>¡Falta poco para envío gratis!</strong>
-                                Agrega <strong>$${(500 - subtotal).toFixed(2)}</strong> más a tu carrito.
-                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                            `;
-                        }
+                    // Actualizar envío
+                    const shippingDisplay = document.getElementById('shipping-display');
+                    if (data.shipping === '$0.00' || data.shipping === '$0,00') {
+                        shippingDisplay.innerHTML = '<span class="text-success fw-bold">¡Gratis!</span>';
                     } else {
-                        if (shippingAlert) {
-                            shippingAlert.className = 'alert alert-success alert-dismissible fade show mb-4';
-                            shippingAlert.innerHTML = `
-                                <i class="bi bi-check-circle me-2"></i>
-                                <strong>¡Felicidades!</strong> Tienes envío gratis en tu pedido.
-                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                            `;
-                        }
+                        shippingDisplay.innerHTML = `<span class="fw-bold">${data.shipping}</span>`;
                     }
+
+                    // Actualizar contador
+                    fetch('/Cart/GetCartCount')
+                        .then(response => response.json())
+                        .then(data => updateCartCount(data.count));
+
+                    showNotification('Cantidad actualizada', 'success');
                 } else {
-                    alert(data.message);
+                    showNotification(data.message || 'Error al actualizar', 'error');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Error al actualizar la cantidad');
+                showNotification('Error al actualizar la cantidad', 'error');
             });
         }
 
@@ -317,38 +355,35 @@
                 const itemId = this.getAttribute('data-item-id');
 
                 if (confirm('¿Estás seguro de eliminar este producto del carrito?')) {
-                    fetch('/Cart/Remove?id=' + itemId, {
+                    const formData = new FormData();
+                    formData.append('id', itemId);
+                    formData.append('__RequestVerificationToken', getToken());
+
+                    fetch('/Cart/Remove', {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'RequestVerificationToken': getToken()
-                        }
+                        body: formData
                     })
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
-                            // Remover fila del DOM
                             const itemRow = document.querySelector(`[data-item-id="${itemId}"]`);
                             itemRow.remove();
 
-                            // Actualizar contador
                             updateCartCount(data.cartItemCount);
 
-                            // Recargar la página si no hay items
                             const remainingItems = document.querySelectorAll('[data-item-id]').length;
                             if (remainingItems === 0) {
                                 location.reload();
                             } else {
-                                // Actualizar totales (podríamos hacer una llamada para recalcular)
-                                alert(data.message);
+                                showNotification(data.message, 'success');
                             }
                         } else {
-                            alert(data.message);
+                            showNotification(data.message, 'error');
                         }
                     })
                     .catch(error => {
                         console.error('Error:', error);
-                        alert('Error al eliminar el producto');
+                        showNotification('Error al eliminar el producto', 'error');
                     });
                 }
             });
@@ -357,12 +392,12 @@
         // Vaciar carrito
         document.getElementById('clearCart')?.addEventListener('click', function() {
             if (confirm('¿Estás seguro de vaciar todo el carrito?')) {
+                const formData = new FormData();
+                formData.append('__RequestVerificationToken', getToken());
+
                 fetch('/Cart/Clear', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'RequestVerificationToken': getToken()
-                    }
+                    body: formData
                 })
                 .then(response => response.json())
                 .then(data => {
@@ -370,43 +405,14 @@
                         updateCartCount(0);
                         location.reload();
                     } else {
-                        alert(data.message);
+                        showNotification(data.message, 'error');
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    alert('Error al vaciar el carrito');
+                    showNotification('Error al vaciar el carrito', 'error');
                 });
             }
-        });
-
-        // Agregar al carrito desde otras páginas (si se usa el mismo script)
-        document.querySelectorAll('.add-to-cart').forEach(button => {
-            button.addEventListener('click', function() {
-                const productId = this.getAttribute('data-product-id');
-
-                fetch('/Cart/Add', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'RequestVerificationToken': getToken()
-                    },
-                    body: JSON.stringify({ productId: productId, quantity: 1 })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        updateCartCount(data.cartItemCount);
-                        alert(data.message);
-                    } else {
-                        alert(data.message);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('Error de conexión');
-                });
-            });
         });
     </script>
 }

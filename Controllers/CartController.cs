@@ -134,6 +134,7 @@ namespace DnTech_Ecommerce.Controllers
             {
                 var cartItem = await _context.CartItems
                     .Include(ci => ci.Product)
+                    .Include(ci => ci.Cart)
                     .FirstOrDefaultAsync(ci => ci.Id == id);
 
                 if (cartItem == null)
@@ -182,6 +183,133 @@ namespace DnTech_Ecommerce.Controllers
                 return Json(new { success = false, message = "Error al actualizar: " + ex.Message });
             }
         }
+
+        /*
+        [HttpPost]
+        [AllowAnonymous]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Update(int id, int quantity)
+        {
+            try
+            {
+                var cartItem = await _context.CartItems
+                    .Include(ci => ci.Product)
+                    .Include(ci => ci.Cart) // ← IMPORTANTE: Incluir Cart
+                    .FirstOrDefaultAsync(ci => ci.Id == id);
+
+                if (cartItem == null)
+                {
+                    return Json(new { success = false, message = "Item no encontrado" });
+                }
+
+                // Verificar stock
+                if (quantity > cartItem.Product?.StockQuantity)
+                {
+                    return Json(new
+                    {
+                        success = false,
+                        message = $"Solo hay {cartItem.Product.StockQuantity} unidades disponibles"
+                    });
+                }
+
+                cartItem.Quantity = quantity;
+
+                // Actualizar fecha del carrito si existe
+                if (cartItem.Cart != null)
+                {
+                    cartItem.Cart.UpdatedAt = DateTime.Now;
+                }
+
+                await _context.SaveChangesAsync();
+
+                // Recalcular totales usando el CartId directamente
+                var cart = await _context.Carts
+                    .Include(c => c.Items)
+                        .ThenInclude(ci => ci.Product)
+                    .FirstOrDefaultAsync(c => c.Id == cartItem.CartId);
+
+                var subtotal = cart.Items.Sum(item => item.TotalPrice);
+                var shipping = subtotal > 500 ? 0 : 50;
+                var tax = subtotal * 0.16m;
+                var total = subtotal + shipping + tax;
+
+                return Json(new
+                {
+                    success = true,
+                    itemTotal = cartItem.TotalPrice.ToString("C"),
+                    subtotal = subtotal.ToString("C"),
+                    shipping = shipping.ToString("C"),
+                    tax = tax.ToString("C"),
+                    total = total.ToString("C")
+                });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = "Error al actualizar: " + ex.Message });
+            }
+        }
+        */
+
+        /*
+        // POST: /Cart/Update
+        [HttpPost]
+        [AllowAnonymous]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Update(int id, int quantity)
+        {
+            try
+            {
+                var cartItem = await _context.CartItems
+                    .Include(ci => ci.Product)
+                    .FirstOrDefaultAsync(ci => ci.Id == id);
+
+                if (cartItem == null)
+                {
+                    return Json(new { success = false, message = "Item no encontrado" });
+                }
+
+                // Verificar stock
+                if (quantity > cartItem.Product?.StockQuantity)
+                {
+                    return Json(new
+                    {
+                        success = false,
+                        message = $"Solo hay {cartItem.Product.StockQuantity} unidades disponibles"
+                    });
+                }
+
+                cartItem.Quantity = quantity;
+                cartItem.Cart.UpdatedAt = DateTime.Now;
+
+                await _context.SaveChangesAsync();
+
+                // Recalcular totales
+                var cart = await _context.Carts
+                    .Include(c => c.Items)
+                        .ThenInclude(ci => ci.Product)
+                    .FirstOrDefaultAsync(c => c.Id == cartItem.CartId);
+
+                var subtotal = cart.Items.Sum(item => item.TotalPrice);
+                var shipping = subtotal > 500 ? 0 : 50;
+                var tax = subtotal * 0.16m;
+                var total = subtotal + shipping + tax;
+
+                return Json(new
+                {
+                    success = true,
+                    itemTotal = cartItem.TotalPrice.ToString("C"),
+                    subtotal = subtotal.ToString("C"),
+                    shipping = shipping.ToString("C"),
+                    tax = tax.ToString("C"),
+                    total = total.ToString("C")
+                });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = "Error al actualizar: " + ex.Message });
+            }
+        }
+        */
 
         // POST: /Cart/Remove
         [HttpPost]

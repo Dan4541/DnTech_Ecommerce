@@ -1,0 +1,438 @@
+﻿@model DnTech_Ecommerce.ViewModels.CheckoutViewModel
+@{
+    ViewData["Title"] = "Checkout - Finalizar Compra";
+    Layout = "_Layout";
+}
+
+<!-- Toast Container -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999"></div>
+
+<div class="container py-5">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a asp-controller="Home" asp-action="Index">Inicio</a></li>
+            <li class="breadcrumb-item"><a asp-controller="Cart" asp-action="Index">Carrito</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Checkout</li>
+        </ol>
+    </nav>
+
+    <h1 class="fw-bold mb-4"><i class="bi bi-credit-card me-2"></i>Finalizar Compra</h1>
+
+    <form asp-action="ProcessOrder" method="post" id="checkoutForm">
+        @Html.AntiForgeryToken()
+
+        <div class="row">
+            <!-- Formulario de información -->
+            <div class="col-lg-7">
+                <!-- Información de Envío -->
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-white border-0">
+                        <h5 class="fw-bold mb-0">
+                            <i class="bi bi-truck me-2"></i>Información de Envío
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <!-- Nombre Completo -->
+                            <div class="col-md-12 mb-3">
+                                <label asp-for="ShippingFullName" class="form-label fw-semibold"></label>
+                                <input asp-for="ShippingFullName" class="form-control" placeholder="Ej: Juan Pérez">
+                                <span asp-validation-for="ShippingFullName" class="text-danger"></span>
+                            </div>
+
+                            <!-- Email -->
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="ShippingEmail" class="form-label fw-semibold"></label>
+                                <input asp-for="ShippingEmail" class="form-control" type="email" placeholder="correo@ejemplo.com">
+                                <span asp-validation-for="ShippingEmail" class="text-danger"></span>
+                            </div>
+
+                            <!-- Teléfono -->
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="ShippingPhone" class="form-label fw-semibold"></label>
+                                <input asp-for="ShippingPhone" class="form-control" type="tel" placeholder="+506 1234-5678">
+                                <span asp-validation-for="ShippingPhone" class="text-danger"></span>
+                            </div>
+
+                            <!-- Dirección -->
+                            <div class="col-md-12 mb-3">
+                                <label asp-for="ShippingAddress" class="form-label fw-semibold"></label>
+                                <input asp-for="ShippingAddress" class="form-control" placeholder="Calle, número, apartamento, etc.">
+                                <span asp-validation-for="ShippingAddress" class="text-danger"></span>
+                            </div>
+
+                            <!-- Ciudad -->
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="ShippingCity" class="form-label fw-semibold"></label>
+                                <input asp-for="ShippingCity" class="form-control" placeholder="Ciudad">
+                                <span asp-validation-for="ShippingCity" class="text-danger"></span>
+                            </div>
+
+                            <!-- Estado/Provincia -->
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="ShippingState" class="form-label fw-semibold"></label>
+                                <input asp-for="ShippingState" class="form-control" placeholder="Estado o Provincia (opcional)">
+                                <span asp-validation-for="ShippingState" class="text-danger"></span>
+                            </div>
+
+                            <!-- Código Postal -->
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="ShippingPostalCode" class="form-label fw-semibold"></label>
+                                <input asp-for="ShippingPostalCode" class="form-control" placeholder="10101">
+                                <span asp-validation-for="ShippingPostalCode" class="text-danger"></span>
+                            </div>
+
+                            <!-- País -->
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="ShippingCountry" class="form-label fw-semibold"></label>
+                                <select asp-for="ShippingCountry" class="form-select">
+                                    <option value="Costa Rica">Costa Rica</option>
+                                    <option value="Guatemala">Guatemala</option>
+                                    <option value="Honduras">Honduras</option>
+                                    <option value="El Salvador">El Salvador</option>
+                                    <option value="Nicaragua">Nicaragua</option>
+                                    <option value="Panamá">Panamá</option>
+                                    <option value="México">México</option>
+                                    <option value="Estados Unidos">Estados Unidos</option>
+                                </select>
+                                <span asp-validation-for="ShippingCountry" class="text-danger"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Método de Pago -->
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-white border-0">
+                        <h5 class="fw-bold mb-0">
+                            <i class="bi bi-credit-card me-2"></i>Método de Pago
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <!-- Tarjeta de Crédito -->
+                            <div class="col-md-6 mb-3">
+                                <div class="form-check payment-method-option p-3 border rounded">
+                                    <input class="form-check-input" type="radio" asp-for="PaymentMethod" value="CreditCard" id="creditCard" checked>
+                                    <label class="form-check-label w-100" for="creditCard">
+                                        <div class="d-flex align-items-center">
+                                            <i class="bi bi-credit-card-2-front fs-3 me-3 text-primary"></i>
+                                            <div>
+                                                <strong>Tarjeta de Crédito</strong>
+                                                <small class="d-block text-muted">Visa, Mastercard, American Express</small>
+                                            </div>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Tarjeta de Débito -->
+                            <div class="col-md-6 mb-3">
+                                <div class="form-check payment-method-option p-3 border rounded">
+                                    <input class="form-check-input" type="radio" asp-for="PaymentMethod" value="DebitCard" id="debitCard">
+                                    <label class="form-check-label w-100" for="debitCard">
+                                        <div class="d-flex align-items-center">
+                                            <i class="bi bi-credit-card fs-3 me-3 text-success"></i>
+                                            <div>
+                                                <strong>Tarjeta de Débito</strong>
+                                                <small class="d-block text-muted">Débito bancario</small>
+                                            </div>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- PayPal -->
+                            <div class="col-md-6 mb-3">
+                                <div class="form-check payment-method-option p-3 border rounded">
+                                    <input class="form-check-input" type="radio" asp-for="PaymentMethod" value="PayPal" id="paypal">
+                                    <label class="form-check-label w-100" for="paypal">
+                                        <div class="d-flex align-items-center">
+                                            <i class="bi bi-paypal fs-3 me-3" style="color: #003087;"></i>
+                                            <div>
+                                                <strong>PayPal</strong>
+                                                <small class="d-block text-muted">Pago seguro con PayPal</small>
+                                            </div>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Transferencia Bancaria -->
+                            <div class="col-md-6 mb-3">
+                                <div class="form-check payment-method-option p-3 border rounded">
+                                    <input class="form-check-input" type="radio" asp-for="PaymentMethod" value="BankTransfer" id="bankTransfer">
+                                    <label class="form-check-label w-100" for="bankTransfer">
+                                        <div class="d-flex align-items-center">
+                                            <i class="bi bi-bank fs-3 me-3 text-info"></i>
+                                            <div>
+                                                <strong>Transferencia Bancaria</strong>
+                                                <small class="d-block text-muted">Transferencia directa</small>
+                                            </div>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Contra Entrega -->
+                            <div class="col-md-12 mb-3">
+                                <div class="form-check payment-method-option p-3 border rounded">
+                                    <input class="form-check-input" type="radio" asp-for="PaymentMethod" value="CashOnDelivery" id="cashOnDelivery">
+                                    <label class="form-check-label w-100" for="cashOnDelivery">
+                                        <div class="d-flex align-items-center">
+                                            <i class="bi bi-cash-coin fs-3 me-3 text-warning"></i>
+                                            <div>
+                                                <strong>Pago Contra Entrega</strong>
+                                                <small class="d-block text-muted">Paga cuando recibas tu pedido</small>
+                                            </div>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <span asp-validation-for="PaymentMethod" class="text-danger"></span>
+                    </div>
+                </div>
+
+                <!-- Notas Adicionales -->
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-white border-0">
+                        <h5 class="fw-bold mb-0">
+                            <i class="bi bi-chat-left-text me-2"></i>Notas Adicionales
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <textarea asp-for="Notes" class="form-control" rows="3"
+                                  placeholder="Información adicional sobre tu pedido (opcional)"></textarea>
+                        <span asp-validation-for="Notes" class="text-danger"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resumen del Pedido -->
+            <div class="col-lg-5">
+                <div class="card border-0 shadow-sm sticky-top" style="top: 100px;">
+                    <div class="card-header bg-white border-0">
+                        <h5 class="fw-bold mb-0">
+                            <i class="bi bi-list-check me-2"></i>Resumen del Pedido
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Items del carrito -->
+                        @if (Model.Cart?.Items != null && Model.Cart.Items.Any())
+                        {
+                            <div class="mb-3" style="max-height: 300px; overflow-y: auto;">
+                                @foreach (var item in Model.Cart.Items)
+                                {
+                                    <div class="d-flex align-items-center mb-3 pb-3 border-bottom">
+                                        <img src="@item.ProductImage" class="rounded me-3"
+                                             alt="@item.ProductName" style="width: 60px; height: 60px; object-fit: cover;">
+                                        <div class="flex-grow-1">
+                                            <h6 class="mb-1">@item.ProductName</h6>
+                                            <small class="text-muted">Cantidad: @item.Quantity</small>
+                                        </div>
+                                        <div class="text-end">
+                                            <strong>$@item.TotalPrice.ToString("N2")</strong>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+
+                        <hr>
+
+                        <!-- Totales -->
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted">Subtotal</span>
+                            <span class="fw-bold">$@Model.Cart?.Subtotal.ToString("N2")</span>
+                        </div>
+
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted">Envío</span>
+                            @if (Model.Cart?.ShippingCost == 0)
+                            {
+                                <span class="text-success fw-bold">¡Gratis!</span>
+                            }
+                            else
+                            {
+                                <span class="fw-bold">$@Model.Cart?.ShippingCost.ToString("N2")</span>
+                            }
+                        </div>
+
+                        <div class="d-flex justify-content-between mb-3">
+                            <span class="text-muted">Impuestos (16%)</span>
+                            <span class="fw-bold">$@Model.Cart?.Tax.ToString("N2")</span>
+                        </div>
+
+                        <hr>
+
+                        <div class="d-flex justify-content-between mb-4">
+                            <span class="fw-bold fs-5">Total</span>
+                            <span class="fw-bold fs-4 text-primary">$@Model.Cart?.Total.ToString("N2")</span>
+                        </div>
+
+                        <!-- Términos y Condiciones -->
+                        <div class="form-check mb-4">
+                            <input class="form-check-input" type="checkbox" asp-for="AcceptTerms" id="acceptTerms">
+                            <label class="form-check-label small" for="acceptTerms">
+                                Acepto los <a href="#" data-bs-toggle="modal" data-bs-target="#termsModal">términos y condiciones</a>
+                            </label>
+                            <div>
+                                <span asp-validation-for="AcceptTerms" class="text-danger small"></span>
+                            </div>
+                        </div>
+
+                        <!-- Botones -->
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg" id="submitOrder">
+                                <i class="bi bi-lock-fill me-2"></i>Realizar Pedido
+                            </button>
+                            <a asp-controller="Cart" asp-action="Index" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left me-2"></i>Volver al carrito
+                            </a>
+                        </div>
+
+                        <!-- Seguridad -->
+                        <div class="text-center mt-3">
+                            <small class="text-muted">
+                                <i class="bi bi-shield-check me-1"></i>
+                                Pago 100% seguro y protegido
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Modal de Términos y Condiciones -->
+<div class="modal fade" id="termsModal" tabindex="-1" aria-labelledby="termsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="termsModalLabel">Términos y Condiciones</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <h6>1. Aceptación de los términos</h6>
+                <p>Al realizar un pedido en TechStore, aceptas estar sujeto a estos términos y condiciones.</p>
+
+                <h6>2. Productos y precios</h6>
+                <p>Nos esforzamos por mostrar información precisa sobre productos y precios. Los precios están sujetos a cambios sin previo aviso.</p>
+
+                <h6>3. Proceso de pago</h6>
+                <p>Todos los pagos son procesados de forma segura. Aceptamos múltiples métodos de pago.</p>
+
+                <h6>4. Envíos y entregas</h6>
+                <p>Los tiempos de envío varían según la ubicación. Nos comprometemos a entregar tu pedido en el menor tiempo posible.</p>
+
+                <h6>5. Política de devoluciones</h6>
+                <p>Aceptamos devoluciones dentro de los 30 días posteriores a la compra en productos que no hayan sido usados.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+
+    <script>
+        // Función para mostrar notificaciones con Bootstrap Toast
+        function showNotification(message, type) {
+            const iconMap = {
+                success: 'bi-check-circle-fill',
+                error: 'bi-exclamation-circle-fill',
+                warning: 'bi-exclamation-triangle-fill',
+                info: 'bi-info-circle-fill'
+            };
+
+            const bgMap = {
+                success: 'bg-success',
+                error: 'bg-danger',
+                warning: 'bg-warning',
+                info: 'bg-info'
+            };
+
+            const icon = iconMap[type] || iconMap.info;
+            const bgClass = bgMap[type] || bgMap.info;
+
+            const toastHtml = `
+                <div class="toast align-items-center text-white ${bgClass} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                    <div class="d-flex">
+                        <div class="toast-body d-flex align-items-center">
+                            <i class="bi ${icon} fs-5 me-2"></i>
+                            <span>${message}</span>
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                    </div>
+                </div>
+            `;
+
+            const toastContainer = document.querySelector('.toast-container');
+            if (toastContainer) {
+                toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+                const toastElement = toastContainer.lastElementChild;
+
+                const toast = new bootstrap.Toast(toastElement, {
+                    delay: 5000,
+                    animation: true
+                });
+
+                toast.show();
+
+                toastElement.addEventListener('hidden.bs.toast', () => {
+                    toastElement.remove();
+                });
+            }
+        }
+
+        // Validación del formulario
+        document.getElementById('checkoutForm').addEventListener('submit', function(e) {
+            const acceptTerms = document.getElementById('acceptTerms');
+
+            if (!acceptTerms.checked) {
+                e.preventDefault();
+                showNotification('Debes aceptar los términos y condiciones', 'warning');
+                acceptTerms.focus();
+                return false;
+            }
+
+            // Mostrar indicador de carga en el botón
+            const submitBtn = document.getElementById('submitOrder');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Procesando pedido...';
+        });
+
+        // Estilo para método de pago seleccionado
+        document.querySelectorAll('.payment-method-option').forEach(option => {
+            const radio = option.querySelector('input[type="radio"]');
+
+            if (radio.checked) {
+                option.classList.add('border-primary', 'bg-light');
+            }
+
+            radio.addEventListener('change', function() {
+                document.querySelectorAll('.payment-method-option').forEach(opt => {
+                    opt.classList.remove('border-primary', 'bg-light');
+                });
+
+                if (this.checked) {
+                    option.classList.add('border-primary', 'bg-light');
+                }
+            });
+        });
+
+        // Mostrar mensaje de TempData si existe
+        @if (TempData["Error"] != null)
+        {
+                <text>
+                showNotification('@TempData["Error"]', 'error');
+                </text>
+        }
+    </script>
+}
