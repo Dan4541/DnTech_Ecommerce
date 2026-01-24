@@ -1,0 +1,459 @@
+﻿@model OrderConfirmationViewModel
+@using DnTech_Ecommerce.Models.Enums
+@using DnTech_Ecommerce.ViewModels
+@{
+    ViewData["Title"] = "Detalle del Pedido #" + Model.OrderNumber;
+    Layout = "_Layout";
+}
+
+<!-- Toast Container -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999"></div>
+
+<div class="container py-5">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a asp-controller="Home" asp-action="Index">Inicio</a></li>
+            <li class="breadcrumb-item"><a asp-controller="Orders" asp-action="Index">Mis Pedidos</a></li>
+            <li class="breadcrumb-item active" aria-current="page">@Model.OrderNumber</li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1 class="fw-bold mb-2">Pedido #@Model.OrderNumber</h1>
+            <p class="text-muted mb-0">
+                <i class="bi bi-calendar me-2"></i>@Model.OrderDate.ToString("dd 'de' MMMM 'de' yyyy 'a las' HH:mm")
+            </p>
+        </div>
+        <div class="col-md-4 text-md-end">
+            <span class="badge bg-@GetStatusColor(Model.Status) fs-5 mb-2">
+                <i class="bi @GetStatusIcon(Model.Status) me-1"></i>
+                @GetStatusText(Model.Status)
+            </span>
+            <div>
+                <button onclick="window.print()" class="btn btn-outline-secondary btn-sm me-2">
+                    <i class="bi bi-printer me-1"></i>Imprimir
+                </button>
+                @if (Model.Status == OrderStatus.Pending)
+                {
+                    <button class="btn btn-danger btn-sm cancel-order"
+                            data-order-id="@Model.OrderId"
+                            data-order-number="@Model.OrderNumber">
+                        <i class="bi bi-x-circle me-1"></i>Cancelar Pedido
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Columna Principal -->
+        <div class="col-lg-8">
+            <!-- Timeline del Estado -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white border-0">
+                    <h5 class="fw-bold mb-0">
+                        <i class="bi bi-hourglass-split me-2"></i>Estado del Pedido
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="timeline">
+                        <div class="timeline-item @(Model.Status >= OrderStatus.Pending ? "active" : "")">
+                            <div class="timeline-marker">
+                                <i class="bi bi-check-circle"></i>
+                            </div>
+                            <div class="timeline-content">
+                                <h6 class="fw-bold mb-1">Pedido Recibido</h6>
+                                <p class="small text-muted mb-0">@Model.OrderDate.ToString("dd/MM/yyyy HH:mm")</p>
+                            </div>
+                        </div>
+
+                        <div class="timeline-item @(Model.Status >= OrderStatus.Processing ? "active" : "")">
+                            <div class="timeline-marker">
+                                <i class="bi bi-arrow-repeat"></i>
+                            </div>
+                            <div class="timeline-content">
+                                <h6 class="fw-bold mb-1">Procesando</h6>
+                                <p class="small text-muted mb-0">Preparando tu pedido</p>
+                            </div>
+                        </div>
+
+                        <div class="timeline-item @(Model.Status >= OrderStatus.Shipped ? "active" : "")">
+                            <div class="timeline-marker">
+                                <i class="bi bi-truck"></i>
+                            </div>
+                            <div class="timeline-content">
+                                <h6 class="fw-bold mb-1">En Camino</h6>
+                                <p class="small text-muted mb-0">Tu pedido ha sido enviado</p>
+                            </div>
+                        </div>
+
+                        <div class="timeline-item @(Model.Status >= OrderStatus.Delivered ? "active" : "")">
+                            <div class="timeline-marker">
+                                <i class="bi bi-house-check"></i>
+                            </div>
+                            <div class="timeline-content">
+                                <h6 class="fw-bold mb-1">Entregado</h6>
+                                <p class="small text-muted mb-0">¡Disfruta tu compra!</p>
+                            </div>
+                        </div>
+
+                        @if (Model.Status == OrderStatus.Cancelled)
+                        {
+                            <div class="timeline-item active cancelled">
+                                <div class="timeline-marker">
+                                    <i class="bi bi-x-circle"></i>
+                                </div>
+                                <div class="timeline-content">
+                                    <h6 class="fw-bold mb-1 text-danger">Cancelado</h6>
+                                    <p class="small text-muted mb-0">El pedido fue cancelado</p>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Productos del Pedido -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white border-0">
+                    <h5 class="fw-bold mb-0">
+                        <i class="bi bi-box-seam me-2"></i>Productos (@Model.TotalItems)
+                    </h5>
+                </div>
+                <div class="card-body">
+                    @foreach (var item in Model.Items)
+                    {
+                        <div class="row align-items-center mb-3 pb-3 border-bottom">
+                            <div class="col-md-2 col-3">
+                                <img src="@item.ProductImage" class="img-fluid rounded"
+                                     alt="@item.ProductName" style="height: 80px; object-fit: cover;">
+                            </div>
+                            <div class="col-md-5 col-9">
+                                <h6 class="mb-1">
+                                    <a asp-controller="Products" asp-action="Details"
+                                       asp-route-id="@item.ProductId"
+                                       class="text-dark text-decoration-none">
+                                        @item.ProductName
+                                    </a>
+                                </h6>
+                                @if (!string.IsNullOrEmpty(item.ProductSku))
+                                {
+                                    <small class="text-muted d-block">SKU: @item.ProductSku</small>
+                                }
+                                <small class="text-muted">Cantidad: @item.Quantity</small>
+                            </div>
+                            <div class="col-md-2 col-6 mt-2 mt-md-0">
+                                <small class="text-muted d-block">Precio unitario</small>
+                                <span>$@item.Price.ToString("N2")</span>
+                            </div>
+                            <div class="col-md-3 col-6 text-end mt-2 mt-md-0">
+                                <small class="text-muted d-block">Subtotal</small>
+                                <strong class="text-primary fs-5">$@item.TotalPrice.ToString("N2")</strong>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Información de Envío -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white border-0">
+                    <h5 class="fw-bold mb-0">
+                        <i class="bi bi-geo-alt me-2"></i>Dirección de Envío
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="fw-bold mb-2">@Model.ShippingFullName</h6>
+                            <p class="mb-1">
+                                <i class="bi bi-house me-2 text-muted"></i>
+                                @Model.ShippingAddress
+                            </p>
+                            <p class="mb-1">
+                                <i class="bi bi-pin-map me-2 text-muted"></i>
+                                @Model.ShippingCity@(!string.IsNullOrEmpty(Model.ShippingState) ? ", " + Model.ShippingState : "")
+                            </p>
+                            <p class="mb-0">
+                                <i class="bi bi-mailbox me-2 text-muted"></i>
+                                @Model.ShippingPostalCode, @Model.ShippingCountry
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="mb-1">
+                                <i class="bi bi-envelope me-2 text-muted"></i>
+                                <a href="mailto:@Model.ShippingEmail">@Model.ShippingEmail</a>
+                            </p>
+                            <p class="mb-0">
+                                <i class="bi bi-telephone me-2 text-muted"></i>
+                                <a href="tel:@Model.ShippingPhone">@Model.ShippingPhone</a>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Columna Lateral - Resumen -->
+        <div class="col-lg-4">
+            <!-- Resumen del Pedido -->
+            <div class="card border-0 shadow-sm sticky-top mb-4" style="top: 100px;">
+                <div class="card-header bg-white border-0">
+                    <h5 class="fw-bold mb-0">
+                        <i class="bi bi-calculator me-2"></i>Resumen
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">Subtotal</span>
+                        <span>$@Model.Subtotal.ToString("N2")</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">Envío</span>
+                        @if (Model.ShippingCost == 0)
+                        {
+                            <span class="text-success">¡Gratis!</span>
+                        }
+                        else
+                        {
+                            <span>$@Model.ShippingCost.ToString("N2")</span>
+                        }
+                    </div>
+                    <div class="d-flex justify-content-between mb-3">
+                        <span class="text-muted">Impuestos (16%)</span>
+                        <span>$@Model.Tax.ToString("N2")</span>
+                    </div>
+                    <hr>
+                    <div class="d-flex justify-content-between mb-4">
+                        <span class="fw-bold fs-5">Total</span>
+                        <span class="fw-bold fs-4 text-primary">$@Model.Total.ToString("N2")</span>
+                    </div>
+
+                    <!-- Método de Pago -->
+                    <div class="mb-3">
+                        <small class="text-muted d-block mb-1">Método de Pago</small>
+                        <div class="d-flex align-items-center">
+                            <i class="bi @GetPaymentIcon(Model.PaymentMethod) fs-5 me-2 text-primary"></i>
+                            <span>@GetPaymentMethodText(Model.PaymentMethod)</span>
+                        </div>
+                    </div>
+
+                    <!-- Estado del Pago -->
+                    <div>
+                        <small class="text-muted d-block mb-1">Estado del Pago</small>
+                        <span class="badge bg-@GetPaymentStatusColor(Model.PaymentStatus)">
+                            @GetPaymentStatusText(Model.PaymentStatus)
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ayuda -->
+            <div class="card border-0 shadow-sm bg-light">
+                <div class="card-body text-center">
+                    <i class="bi bi-question-circle text-primary fs-1 mb-3"></i>
+                    <h6 class="fw-bold mb-2">¿Necesitas ayuda?</h6>
+                    <p class="small text-muted mb-3">
+                        Si tienes alguna pregunta sobre tu pedido, contáctanos.
+                    </p>
+                    <a asp-controller="Home" asp-action="Contact" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-chat-dots me-1"></i>Contactar Soporte
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Botón Volver -->
+    <div class="text-center mt-4">
+        <a asp-action="Index" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-2"></i>Volver a mis pedidos
+        </a>
+    </div>
+</div>
+
+<!-- Token antiforgery -->
+<form method="post" style="display:none;">
+    @Html.AntiForgeryToken()
+</form>
+
+@functions {
+    private string GetStatusText(OrderStatus status)
+    {
+        return status switch
+        {
+            OrderStatus.Pending => "Pendiente",
+            OrderStatus.Processing => "Procesando",
+            OrderStatus.Shipped => "Enviado",
+            OrderStatus.Delivered => "Entregado",
+            OrderStatus.Cancelled => "Cancelado",
+            _ => "Desconocido"
+        };
+    }
+
+    private string GetStatusColor(OrderStatus status)
+    {
+        return status switch
+        {
+            OrderStatus.Pending => "warning",
+            OrderStatus.Processing => "info",
+            OrderStatus.Shipped => "primary",
+            OrderStatus.Delivered => "success",
+            OrderStatus.Cancelled => "danger",
+            _ => "secondary"
+        };
+    }
+
+    private string GetStatusIcon(OrderStatus status)
+    {
+        return status switch
+        {
+            OrderStatus.Pending => "bi-clock",
+            OrderStatus.Processing => "bi-arrow-repeat",
+            OrderStatus.Shipped => "bi-truck",
+            OrderStatus.Delivered => "bi-check-circle",
+            OrderStatus.Cancelled => "bi-x-circle",
+            _ => "bi-question-circle"
+        };
+    }
+
+    private string GetPaymentMethodText(PaymentMethod method)
+    {
+        return method switch
+        {
+            PaymentMethod.CreditCard => "Tarjeta de Crédito",
+            PaymentMethod.DebitCard => "Tarjeta de Débito",
+            PaymentMethod.PayPal => "PayPal",
+            PaymentMethod.BankTransfer => "Transferencia Bancaria",
+            PaymentMethod.CashOnDelivery => "Contra Entrega",
+            _ => "Desconocido"
+        };
+    }
+
+    private string GetPaymentIcon(PaymentMethod method)
+    {
+        return method switch
+        {
+            PaymentMethod.CreditCard => "bi-credit-card-2-front",
+            PaymentMethod.DebitCard => "bi-credit-card",
+            PaymentMethod.PayPal => "bi-paypal",
+            PaymentMethod.BankTransfer => "bi-bank",
+            PaymentMethod.CashOnDelivery => "bi-cash-coin",
+            _ => "bi-question-circle"
+        };
+    }
+
+    private string GetPaymentStatusText(PaymentStatus status)
+    {
+        return status switch
+        {
+            PaymentStatus.Pending => "Pendiente",
+            PaymentStatus.Paid => "Pagado",
+            PaymentStatus.Failed => "Fallido",
+            PaymentStatus.Refunded => "Reembolsado",
+            _ => "Desconocido"
+        };
+    }
+
+    private string GetPaymentStatusColor(PaymentStatus status)
+    {
+        return status switch
+        {
+            PaymentStatus.Pending => "warning",
+            PaymentStatus.Paid => "success",
+            PaymentStatus.Failed => "danger",
+            PaymentStatus.Refunded => "info",
+            _ => "secondary"
+        };
+    }
+}
+
+@section Scripts {
+    <script>
+        // Obtener token antiforgery
+        function getToken() {
+            return document.querySelector('input[name="__RequestVerificationToken"]').value;
+        }
+
+        // Función para mostrar notificaciones
+        function showNotification(message, type) {
+            const iconMap = {
+                success: 'bi-check-circle-fill',
+                error: 'bi-exclamation-circle-fill',
+                warning: 'bi-exclamation-triangle-fill',
+                info: 'bi-info-circle-fill'
+            };
+
+            const bgMap = {
+                success: 'bg-success',
+                error: 'bg-danger',
+                warning: 'bg-warning',
+                info: 'bg-info'
+            };
+
+            const icon = iconMap[type] || iconMap.info;
+            const bgClass = bgMap[type] || bgMap.info;
+
+            const toastHtml = `
+                <div class="toast align-items-center text-white ${bgClass} border-0" role="alert">
+                    <div class="d-flex">
+                        <div class="toast-body d-flex align-items-center">
+                            <i class="bi ${icon} fs-5 me-2"></i>
+                            <span>${message}</span>
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                    </div>
+                </div>
+            `;
+
+            const toastContainer = document.querySelector('.toast-container');
+            if (toastContainer) {
+                toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+                const toastElement = toastContainer.lastElementChild;
+                const toast = new bootstrap.Toast(toastElement, { delay: 5000 });
+                toast.show();
+                toastElement.addEventListener('hidden.bs.toast', () => toastElement.remove());
+            }
+        }
+
+        // Cancelar pedido
+        document.querySelector('.cancel-order')?.addEventListener('click', function() {
+            const orderId = this.getAttribute('data-order-id');
+            const orderNumber = this.getAttribute('data-order-number');
+
+            if (confirm(`¿Estás seguro de cancelar el pedido #${orderNumber}?\n\nEl stock de los productos será restaurado y se procesará el reembolso.`)) {
+                const formData = new FormData();
+                formData.append('id', orderId);
+                formData.append('__RequestVerificationToken', getToken());
+
+                this.disabled = true;
+                this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Cancelando...';
+
+                fetch(`/Orders/Cancel/${orderId}`, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification(data.message, 'success');
+                        setTimeout(() => window.location.href = '/Orders', 2000);
+                    } else {
+                        showNotification(data.message, 'error');
+                        this.disabled = false;
+                        this.innerHTML = '<i class="bi bi-x-circle me-1"></i>Cancelar Pedido';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification('Error al cancelar el pedido', 'error');
+                    this.disabled = false;
+                    this.innerHTML = '<i class="bi bi-x-circle me-1"></i>Cancelar Pedido';
+                });
+            }
+        });
+    </script>
+}

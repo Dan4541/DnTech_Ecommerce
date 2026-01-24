@@ -1,0 +1,310 @@
+﻿@using DnTech_Ecommerce.Models.Enums
+@model DnTech_Ecommerce.ViewModels.OrderListViewModel
+@{
+    ViewData["Title"] = "Mis Pedidos";
+    Layout = "_Layout";
+}
+
+<!-- Toast Container -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999"></div>
+
+<div class="container py-5">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a asp-controller="Home" asp-action="Index">Inicio</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Mis Pedidos</li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="fw-bold mb-1"><i class="bi bi-bag-check me-2"></i>Mis Pedidos</h1>
+            <p class="text-muted mb-0">Gestiona y revisa tus pedidos</p>
+        </div>
+        <div>
+            <span class="badge bg-primary fs-6">@Model.TotalOrders pedidos totales</span>
+        </div>
+    </div>
+
+    <!-- Filtros por estado -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <div class="d-flex flex-wrap gap-2">
+                <a asp-action="Index" asp-route-status="all"
+                   class="btn @(ViewBag.CurrentFilter == "all" ? "btn-primary" : "btn-outline-primary")">
+                    <i class="bi bi-list me-1"></i>Todos
+                </a>
+                <a asp-action="Index" asp-route-status="Pending"
+                   class="btn @(ViewBag.CurrentFilter == "Pending" ? "btn-warning" : "btn-outline-warning")">
+                    <i class="bi bi-clock me-1"></i>Pendientes
+                </a>
+                <a asp-action="Index" asp-route-status="Processing"
+                   class="btn @(ViewBag.CurrentFilter == "Processing" ? "btn-info" : "btn-outline-info")">
+                    <i class="bi bi-arrow-repeat me-1"></i>Procesando
+                </a>
+                <a asp-action="Index" asp-route-status="Shipped"
+                   class="btn @(ViewBag.CurrentFilter == "Shipped" ? "btn-primary" : "btn-outline-primary")">
+                    <i class="bi bi-truck me-1"></i>Enviados
+                </a>
+                <a asp-action="Index" asp-route-status="Delivered"
+                   class="btn @(ViewBag.CurrentFilter == "Delivered" ? "btn-success" : "btn-outline-success")">
+                    <i class="bi bi-check-circle me-1"></i>Entregados
+                </a>
+                <a asp-action="Index" asp-route-status="Cancelled"
+                   class="btn @(ViewBag.CurrentFilter == "Cancelled" ? "btn-danger" : "btn-outline-danger")">
+                    <i class="bi bi-x-circle me-1"></i>Cancelados
+                </a>
+            </div>
+        </div>
+    </div>
+
+    @if (!Model.Orders.Any())
+    {
+        <!-- Sin pedidos -->
+        <div class="text-center py-5">
+            <i class="bi bi-bag-x display-1 text-muted mb-3"></i>
+            <h3>No tienes pedidos</h3>
+            <p class="text-muted mb-4">
+                @if (ViewBag.CurrentFilter != "all")
+                {
+                    <span>No tienes pedidos con este estado.</span>
+                }
+                else
+                {
+                    <span>Aún no has realizado ningún pedido. ¡Comienza a comprar ahora!</span>
+                }
+            </p>
+            <a asp-controller="Products" asp-action="Index" class="btn btn-primary btn-lg">
+                <i class="bi bi-shop me-2"></i>Ir a comprar
+            </a>
+        </div>
+    }
+    else
+    {
+        <!-- Lista de pedidos -->
+        <div class="row g-4">
+            @foreach (var order in Model.Orders)
+            {
+                <div class="col-12">
+                    <div class="card border-0 shadow-sm hover-shadow">
+                        <div class="card-body">
+                            <div class="row align-items-center">
+                                <!-- Información del pedido -->
+                                <div class="col-lg-3 col-md-6 mb-3 mb-lg-0">
+                                    <div class="d-flex align-items-center">
+                                        <div class="rounded-circle bg-primary bg-opacity-10 p-3 me-3">
+                                            <i class="bi bi-receipt fs-4 text-primary"></i>
+                                        </div>
+                                        <div>
+                                            <small class="text-muted d-block">Pedido</small>
+                                            <strong class="text-primary">#@order.OrderNumber</strong>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Fecha -->
+                                <div class="col-lg-2 col-md-6 mb-3 mb-lg-0">
+                                    <small class="text-muted d-block">Fecha</small>
+                                    <strong>@order.OrderDate.ToString("dd/MM/yyyy")</strong>
+                                    <br>
+                                    <small class="text-muted">@order.OrderDate.ToString("HH:mm")</small>
+                                </div>
+
+                                <!-- Estado -->
+                                <div class="col-lg-2 col-md-6 mb-3 mb-lg-0">
+                                    <small class="text-muted d-block mb-1">Estado</small>
+                                    <span class="badge bg-@order.StatusColor fs-6">
+                                        @order.StatusDisplay
+                                    </span>
+                                </div>
+
+                                <!-- Items -->
+                                <div class="col-lg-2 col-md-6 mb-3 mb-lg-0">
+                                    <small class="text-muted d-block">Items</small>
+                                    <strong>@order.TotalItems</strong>
+                                    <small class="text-muted">producto@(order.TotalItems != 1 ? "s" : "")</small>
+                                </div>
+
+                                <!-- Total -->
+                                <div class="col-lg-2 col-md-6 mb-3 mb-lg-0">
+                                    <small class="text-muted d-block">Total</small>
+                                    <strong class="fs-5 text-primary">$@order.Total.ToString("N2")</strong>
+                                </div>
+
+                                <!-- Acciones -->
+                                <div class="col-lg-1 col-md-6 text-end">
+                                    <div class="btn-group-vertical" role="group">
+                                        <a asp-action="Details" asp-route-id="@order.OrderId"
+                                           class="btn btn-sm btn-primary" title="Ver detalles">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        @if (order.Status == OrderStatus.Pending)
+                                        {
+                                            <button class="btn btn-sm btn-danger cancel-order"
+                                                    data-order-id="@order.OrderId"
+                                                    data-order-number="@order.OrderNumber"
+                                                    title="Cancelar pedido">
+                                                <i class="bi bi-x-circle"></i>
+                                            </button>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Información adicional -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm bg-light">
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-md-4 mb-3 mb-md-0">
+                                <i class="bi bi-shield-check text-success fs-3 mb-2"></i>
+                                <h6 class="fw-bold">Compra Segura</h6>
+                                <p class="small text-muted mb-0">Tus datos están protegidos</p>
+                            </div>
+                            <div class="col-md-4 mb-3 mb-md-0">
+                                <i class="bi bi-truck text-primary fs-3 mb-2"></i>
+                                <h6 class="fw-bold">Envío Rápido</h6>
+                                <p class="small text-muted mb-0">Entrega en tiempo récord</p>
+                            </div>
+                            <div class="col-md-4">
+                                <i class="bi bi-headset text-info fs-3 mb-2"></i>
+                                <h6 class="fw-bold">Soporte 24/7</h6>
+                                <p class="small text-muted mb-0">Estamos para ayudarte</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Token antiforgery -->
+<form method="post" style="display:none;">
+    @Html.AntiForgeryToken()
+</form>
+
+@section Scripts {
+    <script>
+        // Obtener token antiforgery
+        function getToken() {
+            return document.querySelector('input[name="__RequestVerificationToken"]').value;
+        }
+
+        // Función para mostrar notificaciones
+        function showNotification(message, type) {
+            const iconMap = {
+                success: 'bi-check-circle-fill',
+                error: 'bi-exclamation-circle-fill',
+                warning: 'bi-exclamation-triangle-fill',
+                info: 'bi-info-circle-fill'
+            };
+
+            const bgMap = {
+                success: 'bg-success',
+                error: 'bg-danger',
+                warning: 'bg-warning',
+                info: 'bg-info'
+            };
+
+            const icon = iconMap[type] || iconMap.info;
+            const bgClass = bgMap[type] || bgMap.info;
+
+            const toastHtml = `
+                <div class="toast align-items-center text-white ${bgClass} border-0" role="alert">
+                    <div class="d-flex">
+                        <div class="toast-body d-flex align-items-center">
+                            <i class="bi ${icon} fs-5 me-2"></i>
+                            <span>${message}</span>
+                        </div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                    </div>
+                </div>
+            `;
+
+            const toastContainer = document.querySelector('.toast-container');
+            if (toastContainer) {
+                toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+                const toastElement = toastContainer.lastElementChild;
+                const toast = new bootstrap.Toast(toastElement, { delay: 5000 });
+                toast.show();
+                toastElement.addEventListener('hidden.bs.toast', () => toastElement.remove());
+            }
+        }
+
+        // Cancelar pedido
+        document.querySelectorAll('.cancel-order').forEach(button => {
+            button.addEventListener('click', function() {
+                const orderId = this.getAttribute('data-order-id');
+                const orderNumber = this.getAttribute('data-order-number');
+
+                if (confirm(`¿Estás seguro de cancelar el pedido #${orderNumber}?\n\nEl stock de los productos será restaurado.`)) {
+                    const formData = new FormData();
+                    formData.append('id', orderId);
+                    formData.append('__RequestVerificationToken', getToken());
+
+                    // Deshabilitar botón
+                    this.disabled = true;
+                    this.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+                    fetch(`/Orders/Cancel/${orderId}`, {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            showNotification(data.message, 'success');
+                            // Recargar página después de 2 segundos
+                            setTimeout(() => location.reload(), 2000);
+                        } else {
+                            showNotification(data.message, 'error');
+                            this.disabled = false;
+                            this.innerHTML = '<i class="bi bi-x-circle"></i>';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        showNotification('Error al cancelar el pedido', 'error');
+                        this.disabled = false;
+                        this.innerHTML = '<i class="bi bi-x-circle"></i>';
+                    });
+                }
+            });
+        });
+
+        // Mostrar mensaje de TempData si existe
+        @if (TempData["Error"] != null)
+        {
+                <text>
+                showNotification('@TempData["Error"]', 'error');
+                </text>
+        }
+
+        @if (TempData["Success"] != null)
+        {
+                <text>
+                showNotification('@TempData["Success"]', 'success');
+                </text>
+        }
+
+        // Efecto hover en las cards
+        document.querySelectorAll('.hover-shadow').forEach(card => {
+            card.addEventListener('mouseenter', function() {
+                this.style.transform = 'translateY(-5px)';
+                this.style.transition = 'all 0.3s ease';
+            });
+            card.addEventListener('mouseleave', function() {
+                this.style.transform = 'translateY(0)';
+            });
+        });
+    </script>
+}

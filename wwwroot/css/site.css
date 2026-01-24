@@ -377,6 +377,89 @@ hr.my-4 {
     text-align: center;
 }
 
+/*Pedidos procesados*/
+.hover-shadow {
+    transition: all 0.3s ease;
+}
+
+    .hover-shadow:hover {
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+    }
+
+/*Detalle pedidos procesados*/
+.timeline {
+    position: relative;
+    padding-left: 50px;
+}
+
+    .timeline::before {
+        content: '';
+        position: absolute;
+        left: 20px;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #e9ecef;
+    }
+
+.timeline-item {
+    position: relative;
+    margin-bottom: 30px;
+    opacity: 0.5;
+    transition: all 0.3s ease;
+}
+
+    .timeline-item.active {
+        opacity: 1;
+    }
+
+        .timeline-item.active .timeline-marker {
+            background: #0d6efd;
+            color: white;
+            box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.2);
+        }
+
+    .timeline-item.cancelled .timeline-marker {
+        background: #dc3545;
+        color: white;
+    }
+
+.timeline-marker {
+    position: absolute;
+    left: -30px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: white;
+    border: 2px solid #e9ecef;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+}
+
+.timeline-content {
+    padding-left: 15px;
+}
+
+/* Print styles */
+@media print {
+    .navbar, .breadcrumb, footer, .btn, .cancel-order, .sticky-top {
+        display: none !important;
+    }
+
+    .card {
+        border: 1px solid #dee2e6 !important;
+        box-shadow: none !important;
+        page-break-inside: avoid;
+    }
+}
+
+
+
+
+
 /* Animación para agregar al carrito */
 @keyframes addToCart {
     0% {
