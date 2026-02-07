@@ -6,8 +6,6 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace DnTech_Ecommerce.Controllers
 {
-    //[ApiController]
-    //[Route("[controller]/[action]")]
     public class AccountController : Controller
     {
         private readonly UserManager<User> _userManager;
@@ -47,6 +45,14 @@ namespace DnTech_Ecommerce.Controllers
 
                 if (result.Succeeded)
                 {
+                    // Obtener usuario y refrescar claims de roles
+                    var user = await _userManager.FindByEmailAsync(model.Email);
+                    if (user != null)
+                    {
+                        await _signInManager.SignOutAsync();
+                        await _signInManager.SignInAsync(user, isPersistent: model.RememberMe);
+                    }
+
                     return RedirectToLocal(returnUrl);
                 }
                 if (result.IsLockedOut)
@@ -62,8 +68,8 @@ namespace DnTech_Ecommerce.Controllers
             return View(model);
         }
 
+
         [HttpGet]
-        //[Authorize(Roles = "Administrator")]
         public IActionResult Register()
         {
             ViewBag.Roles = _roleManager.Roles.ToList();
@@ -71,7 +77,6 @@ namespace DnTech_Ecommerce.Controllers
         }
 
         [HttpPost]
-        //[Authorize(Roles = "Administrator")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Register(RegisterViewModel model)
         {
@@ -121,7 +126,7 @@ namespace DnTech_Ecommerce.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Client")]
+        [Authorize]
         public async Task<IActionResult> Logout()
         {
             await _signInManager.SignOutAsync();
@@ -147,7 +152,7 @@ namespace DnTech_Ecommerce.Controllers
 
         // GET: /Account/Profile
         [HttpGet]
-        [Authorize(Roles = "Client")]
+        [Authorize]
         public async Task<IActionResult> Profile()
         {
             var user = await _userManager.GetUserAsync(User);
@@ -175,7 +180,7 @@ namespace DnTech_Ecommerce.Controllers
         // POST: /Account/Profile
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = "Client")]
+        [Authorize]
         public async Task<IActionResult> Profile(ProfileViewModel model)
         {
             if (!ModelState.IsValid)

@@ -7,9 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DnTech_Ecommerce.Controllers
 {
-    //[ApiController]
-    //[Route("[controller]/[action]")]
-    //[Authorize(Roles = "Client")]
+    //[Authorize]
     public class ProductsController : Controller
     {
         private readonly ApplicationDbContext _context;

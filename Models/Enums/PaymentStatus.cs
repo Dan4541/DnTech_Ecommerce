@@ -5,6 +5,7 @@
         Pending,        // Pendiente
         Paid,           // Pagado
         Failed,         // Fallido
-        Refunded        // Reembolsado
+        Refunded,        // Reembolsado
+        Completed       // Completado
     }
 }

@@ -2,6 +2,7 @@ using DnTech_Ecommerce.Data;
 using DnTech_Ecommerce.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -28,6 +29,12 @@ builder.Services.AddIdentity<User, Role>(options =>
 })
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
+
+// AGREGAR ESTO: Configurar Claims
+builder.Services.Configure<IdentityOptions>(options =>
+{
+    options.ClaimsIdentity.RoleClaimType = ClaimTypes.Role;
+});
 
 // Configure cookies
 builder.Services.ConfigureApplicationCookie(options =>

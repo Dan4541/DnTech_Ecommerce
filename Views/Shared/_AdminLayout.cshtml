@@ -1,0 +1,252 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Panel de Administración</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="~/css/adminstyles.css" asp-append-version="true" />
+</head>
+<body>
+    <div class="admin-wrapper">
+        <!-- Sidebar -->
+        <aside class="admin-sidebar" id="adminSidebar">
+            <div class="sidebar-header">
+                <h4 class="mb-0">
+                    <i class="bi bi-shop"></i>
+                    TechStore Admin
+                </h4>
+                <button class="btn-close-sidebar d-lg-none" id="closeSidebar">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <nav class="sidebar-nav">
+                <ul class="nav flex-column">
+                    <!-- Dashboard -->
+                    <li class="nav-item">
+                        <a class="nav-link" asp-controller="Admin" asp-action="Dashboard">
+                            <i class="bi bi-speedometer2"></i>
+                            <span>Dashboard</span>
+                        </a>
+                    </li>
+
+                    <!-- Pedidos -->
+                    <li class="nav-item">
+                        <a class="nav-link" asp-controller="Admin" asp-action="Orders">
+                            <i class="bi bi-box-seam"></i>
+                            <span>Pedidos</span>
+                        </a>
+                    </li>
+
+                    <!-- Productos -->
+                    <li class="nav-item">
+                        <a class="nav-link" asp-controller="Admin" asp-action="Products">
+                            <i class="bi bi-grid"></i>
+                            <span>Productos</span>
+                        </a>
+                    </li>
+
+                    <!-- Usuarios -->
+                    <li class="nav-item">
+                        <a class="nav-link" asp-controller="Admin" asp-action="Users">
+                            <i class="bi bi-people"></i>
+                            <span>Usuarios</span>
+                        </a>
+                    </li>
+
+                    <!-- Categorías -->
+                    <li class="nav-item">
+                        <a class="nav-link" asp-controller="Admin" asp-action="Categories">
+                            <i class="bi bi-tags"></i>
+                            <span>Categorías</span>
+                        </a>
+                    </li>
+
+                    <li class="nav-divider"></li>
+
+                    <!-- Volver al sitio -->
+                    <li class="nav-item">
+                        <a class="nav-link" asp-controller="Home" asp-action="Index">
+                            <i class="bi bi-arrow-left-circle"></i>
+                            <span>Volver al Sitio</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <div class="admin-content">
+            <!-- Topbar -->
+            <header class="admin-topbar">
+                <div class="topbar-left">
+                    <button class="btn-toggle-sidebar" id="toggleSidebar">
+                        <i class="bi bi-list"></i>
+                    </button>
+                    <h5 class="mb-0 ms-3">@ViewData["Title"]</h5>
+                </div>
+
+                <div class="topbar-right">
+                    <div class="user-menu dropdown">
+                        <button class="btn-user dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-person-circle"></i>
+                            <span>@User.Identity.Name</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <a class="dropdown-item" asp-controller="Account" asp-action="Profile">
+                                    <i class="bi bi-person"></i> Mi Perfil
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <form asp-controller="Account" asp-action="Logout" method="post">
+                                    <button type="submit" class="dropdown-item text-danger">
+                                        <i class="bi bi-box-arrow-right"></i> Cerrar Sesión
+                                    </button>
+                                </form>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Breadcrumbs -->
+            @if (ViewData["Breadcrumbs"] != null)
+            {
+                <nav aria-label="breadcrumb" class="admin-breadcrumb">
+                    <ol class="breadcrumb">
+                        @Html.Raw(ViewData["Breadcrumbs"])
+                    </ol>
+                </nav>
+            }
+
+            <!-- Page Content -->
+            <main class="admin-main">
+                <div class="container-fluid">
+                    @RenderBody()
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Toast Notifications Container -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="liveToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <i class="bi bi-bell-fill me-2"></i>
+                <strong class="me-auto">Notificación</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body"></div>
+        </div>
+    </div>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        // Toggle Sidebar
+        document.getElementById('toggleSidebar').addEventListener('click', function () {
+            document.querySelector('.admin-sidebar').classList.toggle('show');
+            document.querySelector('.admin-content').classList.toggle('sidebar-collapsed');
+        });
+
+        // Close Sidebar (móvil)
+        document.getElementById('closeSidebar').addEventListener('click', function () {
+            document.querySelector('.admin-sidebar').classList.remove('show');
+        });
+
+        // Cerrar sidebar al hacer click fuera (móvil)
+        document.addEventListener('click', function (e) {
+            const sidebar = document.querySelector('.admin-sidebar');
+            const toggleBtn = document.getElementById('toggleSidebar');
+
+            if (window.innerWidth < 992) {
+                if (!sidebar.contains(e.target) && !toggleBtn.contains(e.target)) {
+                    sidebar.classList.remove('show');
+                }
+            }
+        });
+
+        // Marcar link activo en sidebar
+        document.addEventListener('DOMContentLoaded', function () {
+            const currentPath = window.location.pathname;
+            const navLinks = document.querySelectorAll('.sidebar-nav .nav-link');
+
+            navLinks.forEach(link => {
+                if (link.getAttribute('href') === currentPath) {
+                    link.classList.add('active');
+                }
+            });
+        });
+
+        // Función para mostrar notificaciones toast
+        function showNotification(message, type = 'success') {
+            const toastEl = document.getElementById('liveToast');
+            const toastBody = toastEl.querySelector('.toast-body');
+            const toastHeader = toastEl.querySelector('.toast-header');
+
+            // Configurar colores según tipo
+            toastHeader.classList.remove('bg-success', 'bg-danger', 'bg-warning', 'bg-info', 'text-white');
+
+            switch (type) {
+                case 'success':
+                    toastHeader.classList.add('bg-success', 'text-white');
+                    break;
+                case 'error':
+                    toastHeader.classList.add('bg-danger', 'text-white');
+                    break;
+                case 'warning':
+                    toastHeader.classList.add('bg-warning');
+                    break;
+                case 'info':
+                    toastHeader.classList.add('bg-info', 'text-white');
+                    break;
+            }
+
+            toastBody.textContent = message;
+
+            const toast = new bootstrap.Toast(toastEl, {
+                autohide: true,
+                delay: 5000
+            });
+
+            toast.show();
+        }
+
+        // Mostrar notificaciones desde TempData
+        @if (TempData["SuccessMessage"] != null)
+        {
+                <text>
+                showNotification('@TempData["SuccessMessage"]', 'success');
+                </text>
+        }
+
+        @if (TempData["ErrorMessage"] != null)
+        {
+                <text>
+                showNotification('@TempData["ErrorMessage"]', 'error');
+                </text>
+        }
+
+        @if (TempData["WarningMessage"] != null)
+        {
+                <text>
+                showNotification('@TempData["WarningMessage"]', 'warning');
+                </text>
+        }
+
+        @if (TempData["InfoMessage"] != null)
+        {
+                <text>
+                showNotification('@TempData["InfoMessage"]', 'info');
+                </text>
+        }
+    </script>
+
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

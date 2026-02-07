@@ -1,0 +1,272 @@
+﻿@using DnTech_Ecommerce.Models.Enums
+@using DnTech_Ecommerce.ViewModels
+@model DashboardViewModel
+@{
+    ViewData["Title"] = "Dashboard";
+    Layout = "_AdminLayout";
+}
+
+<!-- Cards de Métricas Principales -->
+<div class="row g-3 mb-4">
+    <!-- Pedidos de Hoy -->
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="stat-card">
+            <div class="stat-icon bg-primary">
+                <i class="bi bi-cart-check"></i>
+            </div>
+            <div class="stat-value">@Model.TotalOrdersToday</div>
+            <div class="stat-label">Pedidos Hoy</div>
+        </div>
+    </div>
+
+    <!-- Ingresos del Mes -->
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="stat-card">
+            <div class="stat-icon bg-success">
+                <i class="bi bi-currency-dollar"></i>
+            </div>
+            <div class="stat-value">@Model.RevenueMonth.ToString("C")</div>
+            <div class="stat-label">Ingresos del Mes</div>
+            @if (Model.RevenueChangePercent != 0)
+            {
+                <div class="stat-change @(Model.RevenueChangePercent > 0 ? "positive" : "negative")">
+                    <i class="bi bi-arrow-@(Model.RevenueChangePercent > 0 ? "up" : "down")"></i>
+                    @Math.Abs(Model.RevenueChangePercent).ToString("N1")% vs mes anterior
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Pedidos Pendientes -->
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="stat-card">
+            <div class="stat-icon bg-warning">
+                <i class="bi bi-clock-history"></i>
+            </div>
+            <div class="stat-value">@Model.PendingOrders</div>
+            <div class="stat-label">Pedidos Pendientes</div>
+        </div>
+    </div>
+
+    <!-- Productos Sin Stock -->
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="stat-card">
+            <div class="stat-icon bg-danger">
+                <i class="bi bi-exclamation-triangle"></i>
+            </div>
+            <div class="stat-value">@Model.OutOfStockProducts</div>
+            <div class="stat-label">Sin Stock</div>
+            @if (Model.LowStockProducts > 0)
+            {
+                <div class="stat-change text-warning">
+                    <i class="bi bi-info-circle"></i>
+                    @Model.LowStockProducts con stock bajo
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Métricas Secundarias -->
+<div class="row g-3 mb-4">
+    <div class="col-12 col-md-4">
+        <div class="stat-card">
+            <h6 class="text-muted mb-3">Pedidos Esta Semana</h6>
+            <div class="stat-value">@Model.TotalOrdersWeek</div>
+        </div>
+    </div>
+    <div class="col-12 col-md-4">
+        <div class="stat-card">
+            <h6 class="text-muted mb-3">Ingresos Esta Semana</h6>
+            <div class="stat-value">@Model.RevenueWeek.ToString("C")</div>
+        </div>
+    </div>
+    <div class="col-12 col-md-4">
+        <div class="stat-card">
+            <h6 class="text-muted mb-3">Usuarios Nuevos Este Mes</h6>
+            <div class="stat-value">@Model.NewUsersThisMonth</div>
+            <small class="text-muted">de @Model.TotalUsers totales</small>
+        </div>
+    </div>
+</div>
+
+<!-- Productos y Pedidos -->
+<div class="row g-3">
+    <!-- Pedidos Recientes -->
+    <div class="col-12 col-xl-7">
+        <div class="admin-table">
+            <div class="p-3 border-bottom">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-clock-history me-2"></i>
+                        Pedidos Recientes
+                    </h5>
+                    <a asp-controller="Admin" asp-action="Orders" class="btn btn-sm btn-admin-primary">
+                        Ver Todos <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+
+            @if (Model.RecentOrders.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Número</th>
+                                <th>Cliente</th>
+                                <th>Fecha</th>
+                                <th>Items</th>
+                                <th>Total</th>
+                                <th>Estado</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var order in Model.RecentOrders)
+                            {
+                                <tr>
+                                    <td>
+                                        <strong>@order.OrderNumber</strong>
+                                    </td>
+                                    <td>
+                                        <div>@order.CustomerName</div>
+                                        <small class="text-muted">@order.CustomerEmail</small>
+                                    </td>
+                                    <td>
+                                        <div>@order.OrderDate.ToString("dd/MM/yyyy")</div>
+                                        <small class="text-muted">@order.OrderDate.ToString("HH:mm")</small>
+                                    </td>
+                                    <td>@order.ItemCount</td>
+                                    <td><strong>@order.TotalAmount.ToString("C")</strong></td>
+                                    <td>
+                                        @switch (order.Status)
+                                        {
+                                            case OrderStatus.Pending:
+                                                <span class="badge bg-warning text-dark badge-status">Pendiente</span>
+                                                break;
+                                            case OrderStatus.Processing:
+                                                <span class="badge bg-info badge-status">Procesando</span>
+                                                break;
+                                            case OrderStatus.Shipped:
+                                                <span class="badge bg-primary badge-status">Enviado</span>
+                                                break;
+                                            case OrderStatus.Delivered:
+                                                <span class="badge bg-success badge-status">Entregado</span>
+                                                break;
+                                            case OrderStatus.Cancelled:
+                                                <span class="badge bg-danger badge-status">Cancelado</span>
+                                                break;
+                                        }
+                                    </td>
+                                    <td>
+                                        <a asp-controller="Orders" asp-action="Details" asp-route-id="@order.Id"
+                                           class="btn btn-sm btn-outline-primary" title="Ver Detalles">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="p-4 text-center text-muted">
+                    <i class="bi bi-inbox display-4"></i>
+                    <p class="mt-3">No hay pedidos recientes</p>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Productos Más Vendidos -->
+    <div class="col-12 col-xl-5">
+        <div class="admin-table">
+            <div class="p-3 border-bottom">
+                <h5 class="mb-0">
+                    <i class="bi bi-trophy me-2"></i>
+                    Productos Más Vendidos
+                </h5>
+            </div>
+
+            @if (Model.TopProducts.Any())
+            {
+                <div class="p-3">
+                    @foreach (var product in Model.TopProducts)
+                    {
+                        <div class="d-flex align-items-center mb-3 pb-3 border-bottom">
+                            <div class="flex-shrink-0">
+                                @if (!string.IsNullOrEmpty(product.ImageUrl))
+                                {
+                                    <img src="@product.ImageUrl" alt="@product.ProductName"
+                                         style="width: 50px; height: 50px; object-fit: cover; border-radius: 0.375rem;">
+                                }
+                                else
+                                {
+                                    <div style="width: 50px; height: 50px; background-color: #e9ecef; border-radius: 0.375rem; display: flex; align-items: center; justify-content: center;">
+                                        <i class="bi bi-image text-muted"></i>
+                                    </div>
+                                }
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <h6 class="mb-1">@product.ProductName</h6>
+                                <div class="d-flex justify-content-between">
+                                    <small class="text-muted">
+                                        <i class="bi bi-cart"></i> @product.TotalSold vendidos
+                                    </small>
+                                    <strong class="text-success">@product.Revenue.ToString("C")</strong>
+                                </div>
+                                @if (product.CurrentStock < 10)
+                                {
+                                    <small class="text-danger">
+                                        <i class="bi bi-exclamation-circle"></i>
+                                        Stock: @product.CurrentStock
+                                    </small>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="p-4 text-center text-muted">
+                    <i class="bi bi-inbox display-4"></i>
+                    <p class="mt-3">No hay datos de ventas</p>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Resumen de Productos -->
+<div class="row g-3 mt-4">
+    <div class="col-12">
+        <div class="stat-card">
+            <h5 class="mb-3">
+                <i class="bi bi-box-seam me-2"></i>
+                Resumen de Productos
+            </h5>
+            <div class="row text-center">
+                <div class="col-3">
+                    <div class="stat-value text-primary">@Model.TotalProducts</div>
+                    <div class="stat-label">Total</div>
+                </div>
+                <div class="col-3">
+                    <div class="stat-value text-success">@Model.ActiveProducts</div>
+                    <div class="stat-label">Activos</div>
+                </div>
+                <div class="col-3">
+                    <div class="stat-value text-warning">@Model.LowStockProducts</div>
+                    <div class="stat-label">Stock Bajo</div>
+                </div>
+                <div class="col-3">
+                    <div class="stat-value text-danger">@Model.OutOfStockProducts</div>
+                    <div class="stat-label">Sin Stock</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

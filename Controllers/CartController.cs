@@ -9,7 +9,7 @@ using System.Security.Claims;
 
 namespace DnTech_Ecommerce.Controllers
 {
-    //[Authorize]
+    [Authorize]
     public class CartController : Controller
     {
         private readonly ApplicationDbContext _context;
@@ -33,7 +33,6 @@ namespace DnTech_Ecommerce.Controllers
 
         // POST: /Cart/Add
         [HttpPost]
-        [AllowAnonymous]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> AddToCart(AddToCartViewModel model)
         {
@@ -125,7 +124,6 @@ namespace DnTech_Ecommerce.Controllers
         }
 
         [HttpPost]
-        [AllowAnonymous]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Update(int id, int quantity)
         {
@@ -268,7 +266,6 @@ namespace DnTech_Ecommerce.Controllers
 
         // GET: /Cart/Count
         [HttpGet]
-        [AllowAnonymous]
         public async Task<IActionResult> GetCartCount()
         {
             try

@@ -2,6 +2,7 @@
 using DnTech_Ecommerce.Models;
 using DnTech_Ecommerce.Models.Enums;
 using DnTech_Ecommerce.ViewModels;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -9,6 +10,7 @@ using System.Security.Claims;
 
 namespace DnTech_Ecommerce.Controllers
 {
+    [Authorize]
     public class CheckoutController : Controller
     {
         private readonly ApplicationDbContext _context;
