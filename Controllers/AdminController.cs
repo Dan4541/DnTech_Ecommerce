@@ -1,20 +1,33 @@
 ﻿using DnTech_Ecommerce.Data;
 using DnTech_Ecommerce.Models.Enums;
 using DnTech_Ecommerce.ViewModels;
+using DnTech_Ecommerce.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.AspNetCore.Identity;
 
 namespace DnTech_Ecommerce.Controllers
-{
+{    
     [Authorize(Roles = "Administrator")]
     public class AdminController : Controller
     {
         private readonly ApplicationDbContext _context;
+        private readonly IWebHostEnvironment _environment;
+        private readonly UserManager<User> _userManager;
+        private readonly RoleManager<Role> _roleManager;
 
-        public AdminController(ApplicationDbContext context)
+        public AdminController(ApplicationDbContext context,
+                            IWebHostEnvironment environment,
+                            UserManager<User> userManager,
+                            RoleManager<Role> roleManager)
+                            
         {
             _context = context;
+            _environment = environment;
+            _userManager = userManager;
+            _roleManager = roleManager;
         }
 
         // GET: /Admin/Dashboard
@@ -384,23 +397,869 @@ namespace DnTech_Ecommerce.Controllers
             };
         }
 
-        // Placeholder para las demás acciones (las implementaremos después)
-        public IActionResult Products()
+        
+        // ============================================
+        // GESTIÓN DE PRODUCTOS
+        // ============================================
+
+        // GET: /Admin/Products
+        public async Task<IActionResult> Products(AdminProductsViewModel filter)
         {
+            var query = _context.Products
+                .Include(p => p.Category)
+                .AsQueryable();
+
+            // Aplicar filtro de búsqueda
+            if (!string.IsNullOrEmpty(filter.SearchTerm))
+            {
+                query = query.Where(p =>
+                    p.Name.Contains(filter.SearchTerm) ||
+                    p.Description.Contains(filter.SearchTerm) ||
+                    (p.Sku != null && p.Sku.Contains(filter.SearchTerm)));
+            }
+
+            // Aplicar filtro de categoría
+            if (filter.FilterCategoryId.HasValue && filter.FilterCategoryId > 0)
+            {
+                query = query.Where(p => p.CategoryId == filter.FilterCategoryId.Value);
+            }
+
+            // Aplicar filtro de activo/inactivo
+            if (filter.FilterIsActive.HasValue)
+            {
+                query = query.Where(p => p.IsActive == filter.FilterIsActive.Value);
+            }
+
+            // Aplicar filtro de stock bajo
+            if (filter.FilterLowStock == true)
+            {
+                query = query.Where(p => p.StockQuantity > 0 && p.StockQuantity < 10);
+            }
+
+            // Aplicar filtro de sin stock
+            if (filter.FilterOutOfStock == true)
+            {
+                query = query.Where(p => p.StockQuantity == 0);
+            }
+
+            // Aplicar filtro de destacados
+            if (filter.FilterIsFeatured == true)
+            {
+                query = query.Where(p => p.IsFeatured);
+            }
+
+            // Aplicar filtro de ofertas
+            if (filter.FilterIsOnSale == true)
+            {
+                query = query.Where(p => p.IsOnSale);
+            }
+
+            // Obtener total de productos (antes de paginación)
+            var totalProducts = await query.CountAsync();
+
+            // Calcular paginación
+            var pageSize = filter.PageSize;
+            var currentPage = filter.CurrentPage > 0 ? filter.CurrentPage : 1;
+            var totalPages = (int)Math.Ceiling(totalProducts / (double)pageSize);
+
+            // Obtener productos paginados
+            var products = await query
+                .OrderByDescending(p => p.CreatedAt)
+                .Skip((currentPage - 1) * pageSize)
+                .Take(pageSize)
+                .Select(p => new AdminProductSummaryViewModel
+                {
+                    Id = p.Id,
+                    Name = p.Name,
+                    Sku = p.Sku,
+                    MainImageUrl = p.MainImageUrl,
+                    Price = p.Price,
+                    OldPrice = p.OldPrice,
+                    StockQuantity = p.StockQuantity,
+                    CategoryName = p.Category != null ? p.Category.Name : "Sin categoría",
+                    IsActive = p.IsActive,
+                    IsFeatured = p.IsFeatured,
+                    IsOnSale = p.IsOnSale,
+                    IsNew = p.IsNew,
+                    CreatedAt = p.CreatedAt
+                })
+                .ToListAsync();
+
+            // Obtener estadísticas rápidas
+            var allProducts = await _context.Products.ToListAsync();
+
+            // Obtener categorías para el dropdown
+            var categories = await _context.Categories
+                .Where(c => c.IsActive)
+                .Select(c => new SelectListItem
+                {
+                    Value = c.Id.ToString(),
+                    Text = c.Name
+                })
+                .ToListAsync();
+
+            var viewModel = new AdminProductsViewModel
+            {
+                Products = products,
+                SearchTerm = filter.SearchTerm,
+                FilterCategoryId = filter.FilterCategoryId,
+                FilterIsActive = filter.FilterIsActive,
+                FilterLowStock = filter.FilterLowStock,
+                FilterOutOfStock = filter.FilterOutOfStock,
+                FilterIsFeatured = filter.FilterIsFeatured,
+                FilterIsOnSale = filter.FilterIsOnSale,
+                CurrentPage = currentPage,
+                TotalPages = totalPages,
+                PageSize = pageSize,
+                TotalProducts = totalProducts,
+                Categories = categories,
+                TotalActive = allProducts.Count(p => p.IsActive),
+                TotalInactive = allProducts.Count(p => !p.IsActive),
+                TotalOutOfStock = allProducts.Count(p => p.StockQuantity == 0),
+                TotalLowStock = allProducts.Count(p => p.StockQuantity > 0 && p.StockQuantity < 10)
+            };
+
             ViewData["Title"] = "Gestión de Productos";
-            return View();
+            ViewData["Breadcrumbs"] = @"
+                <li class='breadcrumb-item'><a asp-controller='Admin' asp-action='Dashboard'>Dashboard</a></li>
+                <li class='breadcrumb-item active'>Productos</li>";
+
+            return View(viewModel);
         }
 
-        public IActionResult Users()
+        // GET: /Admin/CreateProduct
+        public async Task<IActionResult> CreateProduct()
         {
+            var categories = await _context.Categories
+                .Where(c => c.IsActive)
+                .Select(c => new SelectListItem
+                {
+                    Value = c.Id.ToString(),
+                    Text = c.Name
+                })
+                .ToListAsync();
+
+            var viewModel = new ProductViewModel
+            {
+                Categories = categories,
+                IsActive = true,
+                IsNew = true
+            };
+
+            ViewData["Title"] = "Crear Producto";
+            ViewData["Breadcrumbs"] = @"
+                <li class='breadcrumb-item'><a asp-controller='Admin' asp-action='Dashboard'>Dashboard</a></li>
+                <li class='breadcrumb-item'><a asp-controller='Admin' asp-action='Products'>Productos</a></li>
+                <li class='breadcrumb-item active'>Crear</li>";
+
+            return View(viewModel);
+        }
+
+        // POST: /Admin/CreateProduct
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CreateProduct(ProductViewModel model)
+        {
+            if (!ModelState.IsValid)
+            {
+                model.Categories = await GetCategoriesSelectList();
+                return View(model);
+            }
+
+            try
+            {
+                var product = new Product
+                {
+                    Name = model.Name,
+                    Description = model.Description,
+                    Price = model.Price,
+                    OldPrice = model.OldPrice,
+                    StockQuantity = model.StockQuantity,
+                    Sku = model.Sku,
+                    Slug = GenerateSlug(model.Name),
+                    IsOnSale = model.IsOnSale,
+                    IsFeatured = model.IsFeatured,
+                    IsNew = model.IsNew,
+                    IsActive = model.IsActive,
+                    CategoryId = model.CategoryId,
+                    CreatedAt = DateTime.Now
+                };
+
+                // Subir imagen si existe
+                if (model.MainImage != null && model.MainImage.Length > 0)
+                {
+                    product.MainImageUrl = await SaveProductImage(model.MainImage);
+                }
+
+                _context.Products.Add(product);
+                await _context.SaveChangesAsync();
+
+                TempData["SuccessMessage"] = "Producto creado exitosamente.";
+                return RedirectToAction("Products");
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = $"Error al crear producto: {ex.Message}";
+                model.Categories = await GetCategoriesSelectList();
+                return View(model);
+            }
+        }
+
+        // GET: /Admin/EditProduct/5
+        public async Task<IActionResult> EditProduct(int? id)
+        {
+            if (id == null)
+            {
+                return NotFound();
+            }
+
+            var product = await _context.Products.FindAsync(id);
+
+            if (product == null)
+            {
+                return NotFound();
+            }
+
+            var categories = await GetCategoriesSelectList();
+
+            var viewModel = new ProductViewModel
+            {
+                Id = product.Id,
+                Name = product.Name,
+                Description = product.Description,
+                Price = product.Price,
+                OldPrice = product.OldPrice,
+                StockQuantity = product.StockQuantity,
+                Sku = product.Sku,
+                MainImageUrl = product.MainImageUrl,
+                IsOnSale = product.IsOnSale,
+                IsFeatured = product.IsFeatured,
+                IsNew = product.IsNew,
+                IsActive = product.IsActive,
+                CategoryId = product.CategoryId,
+                Categories = categories
+            };
+
+            ViewData["Title"] = $"Editar Producto: {product.Name}";
+            ViewData["Breadcrumbs"] = $@"
+                <li class='breadcrumb-item'><a asp-controller='Admin' asp-action='Dashboard'>Dashboard</a></li>
+                <li class='breadcrumb-item'><a asp-controller='Admin' asp-action='Products'>Productos</a></li>
+                <li class='breadcrumb-item active'>Editar</li>";
+
+            return View(viewModel);
+        }
+
+        // POST: /Admin/EditProduct/5
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> EditProduct(int id, ProductViewModel model)
+        {
+            if (id != model.Id)
+            {
+                return NotFound();
+            }
+
+            if (!ModelState.IsValid)
+            {
+                model.Categories = await GetCategoriesSelectList();
+                return View(model);
+            }
+
+            try
+            {
+                var product = await _context.Products.FindAsync(id);
+
+                if (product == null)
+                {
+                    return NotFound();
+                }
+
+                product.Name = model.Name;
+                product.Description = model.Description;
+                product.Price = model.Price;
+                product.OldPrice = model.OldPrice;
+                product.StockQuantity = model.StockQuantity;
+                product.Sku = model.Sku;
+                product.Slug = GenerateSlug(model.Name);
+                product.IsOnSale = model.IsOnSale;
+                product.IsFeatured = model.IsFeatured;
+                product.IsNew = model.IsNew;
+                product.IsActive = model.IsActive;
+                product.CategoryId = model.CategoryId;
+                product.UpdatedAt = DateTime.Now;
+
+                // Subir nueva imagen si existe
+                if (model.MainImage != null && model.MainImage.Length > 0)
+                {
+                    // Eliminar imagen anterior si existe
+                    if (!string.IsNullOrEmpty(product.MainImageUrl))
+                    {
+                        DeleteProductImage(product.MainImageUrl);
+                    }
+
+                    product.MainImageUrl = await SaveProductImage(model.MainImage);
+                }
+
+                _context.Update(product);
+                await _context.SaveChangesAsync();
+
+                TempData["SuccessMessage"] = "Producto actualizado exitosamente.";
+                return RedirectToAction("Products");
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = $"Error al actualizar producto: {ex.Message}";
+                model.Categories = await GetCategoriesSelectList();
+                return View(model);
+            }
+        }
+
+        // POST: /Admin/DeleteProduct/5
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteProduct(int id)
+        {
+            try
+            {
+                var product = await _context.Products.FindAsync(id);
+
+                if (product == null)
+                {
+                    TempData["ErrorMessage"] = "Producto no encontrado.";
+                    return RedirectToAction("Products");
+                }
+
+                // Soft delete - solo desactivar
+                product.IsActive = false;
+                product.UpdatedAt = DateTime.Now;
+
+                _context.Update(product);
+                await _context.SaveChangesAsync();
+
+                TempData["SuccessMessage"] = "Producto eliminado (desactivado) exitosamente.";
+                return RedirectToAction("Products");
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = $"Error al eliminar producto: {ex.Message}";
+                return RedirectToAction("Products");
+            }
+        }
+
+        // POST: /Admin/ToggleProductStatus/5
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ToggleProductStatus(int id)
+        {
+            try
+            {
+                var product = await _context.Products.FindAsync(id);
+
+                if (product == null)
+                {
+                    TempData["ErrorMessage"] = "Producto no encontrado.";
+                    return RedirectToAction("Products");
+                }
+
+                product.IsActive = !product.IsActive;
+                product.UpdatedAt = DateTime.Now;
+
+                _context.Update(product);
+                await _context.SaveChangesAsync();
+
+                var status = product.IsActive ? "activado" : "desactivado";
+                TempData["SuccessMessage"] = $"Producto {status} exitosamente.";
+
+                return RedirectToAction("Products");
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = $"Error al cambiar estado: {ex.Message}";
+                return RedirectToAction("Products");
+            }
+        }
+
+        // ============================================
+        // MÉTODOS AUXILIARES
+        // ============================================
+
+        private async Task<List<SelectListItem>> GetCategoriesSelectList()
+        {
+            return await _context.Categories
+                .Where(c => c.IsActive)
+                .Select(c => new SelectListItem
+                {
+                    Value = c.Id.ToString(),
+                    Text = c.Name
+                })
+                .ToListAsync();
+        }
+
+        private string GenerateSlug(string text)
+        {
+            return text.ToLower()
+                .Replace(" ", "-")
+                .Replace("á", "a").Replace("é", "e").Replace("í", "i")
+                .Replace("ó", "o").Replace("ú", "u")
+                .Replace("ñ", "n");
+        }
+
+        private async Task<string> SaveProductImage(IFormFile image)
+        {
+            var uploadsFolder = Path.Combine(_environment.WebRootPath, "images", "products");
+            
+            // Crear directorio si no existe
+            if (!Directory.Exists(uploadsFolder))
+            {
+                Directory.CreateDirectory(uploadsFolder);
+            }
+
+            var uniqueFileName = $"{Guid.NewGuid()}_{image.FileName}";
+            var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+
+            using (var fileStream = new FileStream(filePath, FileMode.Create))
+            {
+                await image.CopyToAsync(fileStream);
+            }
+
+            return $"/images/products/{uniqueFileName}";
+        }
+
+        private void DeleteProductImage(string imageUrl)
+        {
+            if (string.IsNullOrEmpty(imageUrl))
+                return;
+
+            var imagePath = Path.Combine(_environment.WebRootPath, imageUrl.TrimStart('/'));
+            
+            if (System.IO.File.Exists(imagePath))
+            {
+                System.IO.File.Delete(imagePath);
+            }
+        }
+
+        // ============================================
+        // GESTIÓN DE USUARIOS
+        // ============================================
+
+        // GET: /Admin/Users
+        public async Task<IActionResult> Users(AdminUsersViewModel filter)
+        {
+            var query = _context.Users.AsQueryable();
+
+            // Aplicar filtro de búsqueda
+            if (!string.IsNullOrEmpty(filter.SearchTerm))
+            {
+                query = query.Where(u =>
+                    u.FullName.Contains(filter.SearchTerm) ||
+                    u.Email.Contains(filter.SearchTerm));
+            }
+
+            // Aplicar filtro de activo/inactivo
+            if (filter.FilterIsActive.HasValue)
+            {
+                query = query.Where(u => u.Active == filter.FilterIsActive.Value);
+            }
+
+            // Obtener usuarios con sus roles
+            var users = await query.OrderBy(u => u.FullName).ToListAsync();
+
+            // Filtrar por rol si se especificó
+            List<AdminUserSummaryViewModel> userSummaries = new List<AdminUserSummaryViewModel>();
+
+            foreach (var user in users)
+            {
+                var roles = await _userManager.GetRolesAsync(user);
+                
+                // Aplicar filtro de rol
+                if (!string.IsNullOrEmpty(filter.FilterRole) && !roles.Contains(filter.FilterRole))
+                {
+                    continue;
+                }
+
+                var orderCount = await _context.Orders.CountAsync(o => o.UserId == user.Id);
+
+                userSummaries.Add(new AdminUserSummaryViewModel
+                {
+                    Id = user.Id,
+                    FullName = user.FullName,
+                    Email = user.Email,
+                    PhoneNumber = user.PhoneNumber,
+                    City = user.City,
+                    Active = user.Active,
+                    CreatedAt = user.CreatedAt,
+                    Roles = roles.ToList(),
+                    TotalOrders = orderCount
+                });
+            }
+
+            // Calcular paginación
+            var totalUsers = userSummaries.Count;
+            var pageSize = filter.PageSize;
+            var currentPage = filter.CurrentPage > 0 ? filter.CurrentPage : 1;
+            var totalPages = (int)Math.Ceiling(totalUsers / (double)pageSize);
+
+            var paginatedUsers = userSummaries
+                .Skip((currentPage - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+
+            // Obtener estadísticas
+            var allUsers = await _context.Users.ToListAsync();
+            int totalAdmins = 0;
+            int totalClients = 0;
+
+            foreach (var user in allUsers)
+            {
+                var userRoles = await _userManager.GetRolesAsync(user);
+                if (userRoles.Contains("Administrator"))
+                    totalAdmins++;
+                if (userRoles.Contains("Client"))
+                    totalClients++;
+            }
+
+            var viewModel = new AdminUsersViewModel
+            {
+                Users = paginatedUsers,
+                SearchTerm = filter.SearchTerm,
+                FilterRole = filter.FilterRole,
+                FilterIsActive = filter.FilterIsActive,
+                CurrentPage = currentPage,
+                TotalPages = totalPages,
+                PageSize = pageSize,
+                TotalUsers = totalUsers,
+                TotalAdministrators = totalAdmins,
+                TotalClients = totalClients,
+                TotalActive = allUsers.Count(u => u.Active),
+                TotalInactive = allUsers.Count(u => !u.Active)
+            };
+
             ViewData["Title"] = "Gestión de Usuarios";
-            return View();
+            ViewData["Breadcrumbs"] = @"
+                <li class='breadcrumb-item'><a asp-controller='Admin' asp-action='Dashboard'>Dashboard</a></li>
+                <li class='breadcrumb-item active'>Usuarios</li>";
+
+            return View(viewModel);
         }
 
-        public IActionResult Categories()
+        // GET: /Admin/UserDetails/id
+        public async Task<IActionResult> UserDetails(string? id)
         {
-            ViewData["Title"] = "Gestión de Categorías";
-            return View();
+            if (string.IsNullOrEmpty(id))
+            {
+                return NotFound();
+            }
+
+            var user = await _userManager.FindByIdAsync(id);
+
+            if (user == null)
+            {
+                return NotFound();
+            }
+
+            var roles = await _userManager.GetRolesAsync(user);
+            var allRoles = await _roleManager.Roles.Select(r => r.Name).ToListAsync();
+
+            var orders = await _context.Orders
+                .Where(o => o.UserId == user.Id)
+                .OrderByDescending(o => o.OrderDate)
+                .Take(10)
+                .ToListAsync();
+
+            var totalOrders = await _context.Orders.CountAsync(o => o.UserId == user.Id);
+            var totalSpent = await _context.Orders
+                .Where(o => o.UserId == user.Id && o.Status != OrderStatus.Cancelled)
+                .SumAsync(o => o.Total);
+            var pendingOrders = await _context.Orders
+                .CountAsync(o => o.UserId == user.Id && o.Status == OrderStatus.Pending);
+            var completedOrders = await _context.Orders
+                .CountAsync(o => o.UserId == user.Id && o.Status == OrderStatus.Delivered);
+
+            var viewModel = new AdminUserDetailsViewModel
+            {
+                Id = user.Id,
+                FullName = user.FullName,
+                Email = user.Email,
+                PhoneNumber = user.PhoneNumber,
+                Address = user.Address,
+                City = user.City,
+                PostalCode = user.PostalCode,
+                Country = user.Country,
+                Active = user.Active,
+                CreatedAt = user.CreatedAt,
+                CurrentRoles = roles.ToList(),
+                AvailableRoles = allRoles.Select(r => new SelectListItem
+                {
+                    Value = r,
+                    Text = r
+                }).ToList(),
+                TotalOrders = totalOrders,
+                TotalSpent = totalSpent,
+                PendingOrders = pendingOrders,
+                CompletedOrders = completedOrders,
+                RecentOrders = orders.Select(o => new UserOrderHistoryViewModel
+                {
+                    OrderId = o.Id,
+                    OrderNumber = o.OrderNumber,
+                    OrderDate = o.OrderDate,
+                    TotalAmount = o.Total,
+                    Status = o.Status.ToString()
+                }).ToList()
+            };
+
+            ViewData["Title"] = $"Usuario: {user.FullName}";
+            ViewData["Breadcrumbs"] = $@"
+                <li class='breadcrumb-item'><a asp-controller='Admin' asp-action='Dashboard'>Dashboard</a></li>
+                <li class='breadcrumb-item'><a asp-controller='Admin' asp-action='Users'>Usuarios</a></li>
+                <li class='breadcrumb-item active'>{user.FullName}</li>";
+
+            return View(viewModel);
         }
+
+        // POST: /Admin/ChangeUserRole
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ChangeUserRole(string userId, string newRole)
+        {
+            try
+            {
+                var user = await _userManager.FindByIdAsync(userId);
+
+                if (user == null)
+                {
+                    TempData["ErrorMessage"] = "Usuario no encontrado.";
+                    return RedirectToAction("Users");
+                }
+
+                var currentRoles = await _userManager.GetRolesAsync(user);
+
+                // Remover roles actuales
+                if (currentRoles.Any())
+                {
+                    await _userManager.RemoveFromRolesAsync(user, currentRoles);
+                }
+
+                // Asignar nuevo rol
+                await _userManager.AddToRoleAsync(user, newRole);
+
+                TempData["SuccessMessage"] = $"Rol de {user.FullName} cambiado a {newRole} exitosamente.";
+                return RedirectToAction("UserDetails", new { id = userId });
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = $"Error al cambiar rol: {ex.Message}";
+                return RedirectToAction("UserDetails", new { id = userId });
+            }
+        }
+
+        // POST: /Admin/ToggleUserStatus
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ToggleUserStatus(string userId)
+        {
+            try
+            {
+                var user = await _userManager.FindByIdAsync(userId);
+
+                if (user == null)
+                {
+                    TempData["ErrorMessage"] = "Usuario no encontrado.";
+                    return RedirectToAction("Users");
+                }
+
+                user.Active = !user.Active;
+                await _userManager.UpdateAsync(user);
+
+                var status = user.Active ? "activado" : "desactivado";
+                TempData["SuccessMessage"] = $"Usuario {status} exitosamente.";
+
+                return RedirectToAction("UserDetails", new { id = userId });
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = $"Error al cambiar estado: {ex.Message}";
+                return RedirectToAction("UserDetails", new { id = userId });
+            }
+        }
+
+        // ============================================
+        // GESTIÓN DE CATEGORÍAS
+        // ============================================
+
+        // GET: /Admin/Categories
+        public async Task<IActionResult> Categories()
+        {
+            var categories = await _context.Categories
+                .Include(c => c.Products)
+                .OrderBy(c => c.Name)
+                .ToListAsync();
+
+            var viewModel = new AdminCategoriesViewModel
+            {
+                Categories = categories.Select(c => new AdminCategorySummaryViewModel
+                {
+                    Id = c.Id,
+                    Name = c.Name,
+                    Description = c.Description,
+                    Slug = c.Slug,
+                    IsActive = c.IsActive,
+                    ProductCount = c.Products.Count,
+                    CreatedAt = c.CreatedAt
+                }).ToList(),
+                TotalCategories = categories.Count,
+                ActiveCategories = categories.Count(c => c.IsActive),
+                InactiveCategories = categories.Count(c => !c.IsActive)
+            };
+
+            ViewData["Title"] = "Gestión de Categorías";
+            ViewData["Breadcrumbs"] = @"
+                <li class='breadcrumb-item'><a asp-controller='Admin' asp-action='Dashboard'>Dashboard</a></li>
+                <li class='breadcrumb-item active'>Categorías</li>";
+
+            return View(viewModel);
+        }
+
+        // POST: /Admin/CreateCategory
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CreateCategory(AdminCategoryFormViewModel model)
+        {
+            if (!ModelState.IsValid)
+            {
+                TempData["ErrorMessage"] = "Datos inválidos. Por favor revisa el formulario.";
+                return RedirectToAction("Categories");
+            }
+
+            try
+            {
+                var category = new Category
+                {
+                    Name = model.Name,
+                    Description = model.Description,
+                    Slug = GenerateSlug(model.Name),
+                    IsActive = model.IsActive,
+                    CreatedAt = DateTime.Now
+                };
+
+                _context.Categories.Add(category);
+                await _context.SaveChangesAsync();
+
+                TempData["SuccessMessage"] = "Categoría creada exitosamente.";
+                return RedirectToAction("Categories");
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = $"Error al crear categoría: {ex.Message}";
+                return RedirectToAction("Categories");
+            }
+        }
+
+        // POST: /Admin/EditCategory
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> EditCategory(AdminCategoryFormViewModel model)
+        {
+            if (!ModelState.IsValid)
+            {
+                TempData["ErrorMessage"] = "Datos inválidos. Por favor revisa el formulario.";
+                return RedirectToAction("Categories");
+            }
+
+            try
+            {
+                var category = await _context.Categories.FindAsync(model.Id);
+
+                if (category == null)
+                {
+                    TempData["ErrorMessage"] = "Categoría no encontrada.";
+                    return RedirectToAction("Categories");
+                }
+
+                category.Name = model.Name;
+                category.Description = model.Description;
+                category.Slug = GenerateSlug(model.Name);
+                category.IsActive = model.IsActive;
+
+                _context.Update(category);
+                await _context.SaveChangesAsync();
+
+                TempData["SuccessMessage"] = "Categoría actualizada exitosamente.";
+                return RedirectToAction("Categories");
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = $"Error al actualizar categoría: {ex.Message}";
+                return RedirectToAction("Categories");
+            }
+        }
+
+        // POST: /Admin/DeleteCategory
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteCategory(int id)
+        {
+            try
+            {
+                var category = await _context.Categories
+                    .Include(c => c.Products)
+                    .FirstOrDefaultAsync(c => c.Id == id);
+
+                if (category == null)
+                {
+                    TempData["ErrorMessage"] = "Categoría no encontrada.";
+                    return RedirectToAction("Categories");
+                }
+
+                // Verificar si tiene productos
+                if (category.Products.Any())
+                {
+                    TempData["ErrorMessage"] = $"No se puede eliminar la categoría porque tiene {category.Products.Count} producto(s) asociado(s). Desactívala en su lugar.";
+                    return RedirectToAction("Categories");
+                }
+
+                _context.Categories.Remove(category);
+                await _context.SaveChangesAsync();
+
+                TempData["SuccessMessage"] = "Categoría eliminada exitosamente.";
+                return RedirectToAction("Categories");
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = $"Error al eliminar categoría: {ex.Message}";
+                return RedirectToAction("Categories");
+            }
+        }
+
+        // POST: /Admin/ToggleCategoryStatus
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ToggleCategoryStatus(int id)
+        {
+            try
+            {
+                var category = await _context.Categories.FindAsync(id);
+
+                if (category == null)
+                {
+                    TempData["ErrorMessage"] = "Categoría no encontrada.";
+                    return RedirectToAction("Categories");
+                }
+
+                category.IsActive = !category.IsActive;
+                _context.Update(category);
+                await _context.SaveChangesAsync();
+
+                var status = category.IsActive ? "activada" : "desactivada";
+                TempData["SuccessMessage"] = $"Categoría {status} exitosamente.";
+
+                return RedirectToAction("Categories");
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = $"Error al cambiar estado: {ex.Message}";
+                return RedirectToAction("Categories");
+            }
+        }
+
     }
 }
