@@ -102,5 +102,8 @@ namespace DnTech_Ecommerce.Models
         // Propiedades calculadas
         [NotMapped]
         public int TotalItems => Items.Sum(item => item.Quantity);
+
+        [StringLength(200)]
+        public string? PaymentTransactionId { get; set; } 
     }
 }

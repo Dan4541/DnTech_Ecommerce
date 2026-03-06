@@ -1,6 +1,7 @@
 ﻿using DnTech_Ecommerce.Data;
 using DnTech_Ecommerce.Models;
 using DnTech_Ecommerce.Models.Enums;
+using DnTech_Ecommerce.Services;
 using DnTech_Ecommerce.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -15,11 +16,13 @@ namespace DnTech_Ecommerce.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly UserManager<User> _userManager;
+        private readonly PayPalService _payPalService;
 
-        public CheckoutController(ApplicationDbContext context, UserManager<User> userManager)
+        public CheckoutController(ApplicationDbContext context, UserManager<User> userManager, PayPalService payPalService)
         {
             _context = context;
             _userManager = userManager;
+            _payPalService = payPalService;
         }
 
         // GET: /Checkout
@@ -82,7 +85,6 @@ namespace DnTech_Ecommerce.Controllers
         {
             if (!ModelState.IsValid)
             {
-                // Recargar el carrito para mostrar errores
                 var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
                 var cart = await GetCartWithItems(userId);
                 model.Cart = MapCartToViewModel(cart);
@@ -110,57 +112,31 @@ namespace DnTech_Ecommerce.Controllers
                     }
                 }
 
-                // Crear la orden
-                var order = new Order
+                // SI ES PAYPAL, redirigir a PayPal
+                if (model.PaymentMethod == PaymentMethod.PayPal)
                 {
-                    OrderNumber = GenerateOrderNumber(),
-                    UserId = userId,
+                    // Guardar datos temporales en sesión para recuperarlos después
+                    HttpContext.Session.SetString("CheckoutData", System.Text.Json.JsonSerializer.Serialize(model));
 
-                    // Información de envío
-                    ShippingFullName = model.ShippingFullName,
-                    ShippingEmail = model.ShippingEmail,
-                    ShippingPhone = model.ShippingPhone,
-                    ShippingAddress = model.ShippingAddress,
-                    ShippingCity = model.ShippingCity,
-                    ShippingState = model.ShippingState,
-                    ShippingPostalCode = model.ShippingPostalCode,
-                    ShippingCountry = model.ShippingCountry,
+                    var returnUrl = Url.Action("PayPalSuccess", "Checkout", null, Request.Scheme);
+                    var cancelUrl = Url.Action("PayPalCancel", "Checkout", null, Request.Scheme);
 
-                    // Montos
-                    Subtotal = cart.Subtotal,
-                    ShippingCost = cart.ShippingCost,
-                    Tax = cart.Tax,
-                    Total = cart.Total,
+                    // Crear orden en PayPal
+                    var approvalUrl = await _payPalService.CreateOrder(cart.Total, "USD", returnUrl, cancelUrl);
 
-                    // Estado y pago
-                    Status = OrderStatus.Pending,
-                    PaymentMethod = model.PaymentMethod,
-                    PaymentStatus = PaymentStatus.Pending,
-
-                    Notes = model.Notes,
-                    OrderDate = DateTime.Now
-                };
-
-                // Agregar items de la orden
-                foreach (var cartItem in cart.Items)
-                {
-                    var orderItem = new OrderItem
+                    if (string.IsNullOrEmpty(approvalUrl))
                     {
-                        ProductId = cartItem.ProductId,
-                        ProductName = cartItem.Product?.Name ?? "",
-                        ProductSku = cartItem.Product?.Sku,
-                        Price = cartItem.Price,
-                        Quantity = cartItem.Quantity
-                    };
-
-                    order.Items.Add(orderItem);
-
-                    // Reducir el stock del producto
-                    if (cartItem.Product != null)
-                    {
-                        cartItem.Product.StockQuantity -= cartItem.Quantity;
+                        TempData["Error"] = "Error al conectar con PayPal. Intenta otro método de pago.";
+                        model.Cart = MapCartToViewModel(cart);
+                        return View("Index", model);
                     }
+
+                    // Redirigir a PayPal
+                    return Redirect(approvalUrl);
                 }
+
+                //OTROS MÉTODOS DE PAGO (tarjeta, transferencia, etc.) - Proceso normal
+                var order = await CreateOrder(model, userId, cart);
 
                 // Guardar la orden
                 _context.Orders.Add(order);
@@ -177,13 +153,78 @@ namespace DnTech_Ecommerce.Controllers
             {
                 ModelState.AddModelError("", "Error al procesar el pedido: " + ex.Message);
 
-                // Recargar el carrito
                 var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
                 var cart = await GetCartWithItems(userId);
                 model.Cart = MapCartToViewModel(cart);
 
                 return View("Index", model);
             }
+        }
+
+        // ============================================
+        // CALLBACKS DE PAYPAL
+        // ============================================
+
+        // GET: /Checkout/PayPalSuccess
+        public async Task<IActionResult> PayPalSuccess(string token)
+        {
+            try
+            {
+                // Capturar el pago en PayPal
+                var (success, transactionId, message) = await _payPalService.CaptureOrder(token);
+
+                if (!success)
+                {
+                    TempData["Error"] = $"Error al procesar el pago: {message}";
+                    return RedirectToAction("Index");
+                }
+
+                // Recuperar datos del checkout
+                var checkoutDataJson = HttpContext.Session.GetString("CheckoutData");
+                if (string.IsNullOrEmpty(checkoutDataJson))
+                {
+                    TempData["Error"] = "Sesión expirada. Por favor, intenta de nuevo.";
+                    return RedirectToAction("Index", "Cart");
+                }
+
+                var checkoutData = System.Text.Json.JsonSerializer.Deserialize<CheckoutViewModel>(checkoutDataJson);
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                var cart = await GetCartWithItems(userId);
+
+                if (cart == null || !cart.Items.Any())
+                {
+                    TempData["Error"] = "Tu carrito está vacío";
+                    return RedirectToAction("Index", "Cart");
+                }
+
+                // Crear la orden en nuestra BD
+                var order = await CreateOrder(checkoutData, userId, cart);
+                order.PaymentStatus = PaymentStatus.Completed;
+                order.PaymentTransactionId = transactionId;
+
+                _context.Orders.Add(order);
+                _context.CartItems.RemoveRange(cart.Items);
+
+                await _context.SaveChangesAsync();
+
+                // Limpiar sesión
+                HttpContext.Session.Remove("CheckoutData");
+
+                TempData["Success"] = "¡Pago completado exitosamente!";
+                return RedirectToAction("Confirmation", new { id = order.Id });
+            }
+            catch (Exception ex)
+            {
+                TempData["Error"] = $"Error al procesar el pago: {ex.Message}";
+                return RedirectToAction("Index");
+            }
+        }
+
+        // GET: /Checkout/PayPalCancel
+        public IActionResult PayPalCancel()
+        {
+            TempData["Warning"] = "Cancelaste el pago con PayPal. Puedes intentar de nuevo o elegir otro método de pago.";
+            return RedirectToAction("Index");
         }
 
         // GET: /Checkout/Confirmation/{id}
@@ -241,7 +282,66 @@ namespace DnTech_Ecommerce.Controllers
             return View(viewModel);
         }
 
-        // Métodos auxiliares privados
+        // ============================================
+        // MÉTODOS AUXILIARES PRIVADOS
+        // ============================================
+
+        private async Task<Order> CreateOrder(CheckoutViewModel model, string userId, Cart cart)
+        {
+            var order = new Order
+            {
+                OrderNumber = GenerateOrderNumber(),
+                UserId = userId,
+
+                // Información de envío
+                ShippingFullName = model.ShippingFullName,
+                ShippingEmail = model.ShippingEmail,
+                ShippingPhone = model.ShippingPhone,
+                ShippingAddress = model.ShippingAddress,
+                ShippingCity = model.ShippingCity,
+                ShippingState = model.ShippingState,
+                ShippingPostalCode = model.ShippingPostalCode,
+                ShippingCountry = model.ShippingCountry,
+
+                // Montos
+                Subtotal = cart.Subtotal,
+                ShippingCost = cart.ShippingCost,
+                Tax = cart.Tax,
+                Total = cart.Total,
+
+                // Estado y pago
+                Status = OrderStatus.Pending,
+                PaymentMethod = model.PaymentMethod,
+                PaymentStatus = PaymentStatus.Pending,
+
+                Notes = model.Notes,
+                OrderDate = DateTime.Now
+            };
+
+            // Agregar items de la orden
+            foreach (var cartItem in cart.Items)
+            {
+                var orderItem = new OrderItem
+                {
+                    ProductId = cartItem.ProductId,
+                    ProductName = cartItem.Product?.Name ?? "",
+                    ProductSku = cartItem.Product?.Sku,
+                    Price = cartItem.Price,
+                    Quantity = cartItem.Quantity
+                };
+
+                order.Items.Add(orderItem);
+
+                // Reducir el stock del producto
+                if (cartItem.Product != null)
+                {
+                    cartItem.Product.StockQuantity -= cartItem.Quantity;
+                }
+            }
+
+            return order;
+        }
+
         private async Task<Cart?> GetCartWithItems(string userId)
         {
             return await _context.Carts
@@ -293,7 +393,6 @@ namespace DnTech_Ecommerce.Controllers
 
         private string GenerateOrderNumber()
         {
-            // Formato: ORD-YYYYMMDD-XXXXX
             var date = DateTime.Now.ToString("yyyyMMdd");
             var random = new Random().Next(10000, 99999);
             return $"ORD-{date}-{random}";

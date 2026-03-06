@@ -1,8 +1,10 @@
 using DnTech_Ecommerce.Data;
 using DnTech_Ecommerce.Models;
+using DnTech_Ecommerce.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using OfficeOpenXml;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -46,7 +48,40 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.SlidingExpiration = true;
 });
 
+
+// Registrar servicio de reportes
+builder.Services.AddScoped<ReportService>();
+builder.Services.AddScoped<PayPalService>();
+
 builder.Services.AddControllersWithViews();
+
+builder.Services.AddHttpClient();
+
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromMinutes(30);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+});
+
+// Configurar CORS
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowPayPal", policy =>
+    {
+        policy.WithOrigins(
+                "https://www.paypal.com",
+                "https://www.sandbox.paypal.com",
+                "https://api-m.paypal.com",
+                "https://api-m.sandbox.paypal.com"
+            )
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
+    });
+});
+
+
 
 var app = builder.Build();
 
@@ -60,6 +95,9 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 app.UseRouting();
+app.UseSession();
+
+app.UseCors("AllowPayPal");
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -70,36 +108,3 @@ app.MapControllerRoute(
 
 app.Run();
 
-
-
-
-
-
-
-//************ORIGINAL CODE BELOW************//
-
-//var builder = WebApplication.CreateBuilder(args);
-
-//// Add services to the container.
-//builder.Services.AddControllersWithViews();
-
-//var app = builder.Build();
-
-//// Configure the HTTP request pipeline.
-//if (!app.Environment.IsDevelopment())
-//{
-//    app.UseExceptionHandler("/Home/Error");
-//}
-//app.UseRouting();
-
-//app.UseAuthorization();
-
-//app.MapStaticAssets();
-
-//app.MapControllerRoute(
-//    name: "default",
-//    pattern: "{controller=Home}/{action=Index}/{id?}")
-//    .WithStaticAssets();
-
-
-//app.Run();

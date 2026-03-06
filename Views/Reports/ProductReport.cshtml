@@ -1,0 +1,151 @@
+@model DnTech_Ecommerce.ViewModels.ProductReportViewModel
+@{
+    ViewData["Title"] = "Reporte de Productos";
+    Layout = "_AdminLayout";
+}
+
+<!-- Header con botones de exportación -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="mb-1">Reporte de Productos Más Vendidos</h4>
+        <small class="text-muted">
+            <i class="bi bi-calendar"></i> @Model.StartDate.ToString("dd/MM/yyyy") - @Model.EndDate.ToString("dd/MM/yyyy")
+        </small>
+    </div>
+    <div class="btn-group">
+        <a asp-action="ExportProductExcel" 
+           asp-route-startDate="@Model.StartDate" 
+           asp-route-endDate="@Model.EndDate" 
+           class="btn btn-success">
+            <i class="bi bi-file-earmark-excel"></i> Excel
+        </a>
+        <a asp-action="ExportProductPDF" 
+           asp-route-startDate="@Model.StartDate" 
+           asp-route-endDate="@Model.EndDate" 
+           class="btn btn-danger">
+            <i class="bi bi-file-earmark-pdf"></i> PDF
+        </a>
+        <a asp-action="Index" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Volver
+        </a>
+    </div>
+</div>
+
+<!-- Cards de resumen -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon bg-primary">
+                <i class="bi bi-box-seam"></i>
+            </div>
+            <div class="stat-value">@Model.TotalProductsSold</div>
+            <div class="stat-label">Total Vendidos</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon bg-success">
+                <i class="bi bi-currency-dollar"></i>
+            </div>
+            <div class="stat-value">@Model.TotalRevenue.ToString("C")</div>
+            <div class="stat-label">Ingresos Totales</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon bg-warning">
+                <i class="bi bi-exclamation-triangle"></i>
+            </div>
+            <div class="stat-value">@Model.LowStockProducts</div>
+            <div class="stat-label">Stock Bajo</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="stat-icon bg-danger">
+                <i class="bi bi-x-circle"></i>
+            </div>
+            <div class="stat-value">@Model.OutOfStockProducts</div>
+            <div class="stat-label">Sin Stock</div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de top productos -->
+<div class="admin-table">
+    <div class="p-3 border-bottom">
+        <h5 class="mb-0"><i class="bi bi-trophy me-2"></i>Top Productos Más Vendidos</h5>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>SKU</th>
+                    <th>Producto</th>
+                    <th>Categoría</th>
+                    <th>Cantidad Vendida</th>
+                    <th>Precio Unitario</th>
+                    <th>Ingresos</th>
+                    <th>Stock Actual</th>
+                </tr>
+            </thead>
+            <tbody>
+                @{
+                    int rank = 1;
+                }
+                @foreach (var product in Model.TopProducts)
+                {
+                    <tr>
+                        <td>
+                            @if (rank <= 3)
+                            {
+                                <span class="badge bg-warning">
+                                    <i class="bi bi-trophy-fill"></i> @rank
+                                </span>
+                            }
+                            else
+                            {
+                                <strong>@rank</strong>
+                            }
+                        </td>
+                        <td>
+                            @if (!string.IsNullOrEmpty(product.Sku))
+                            {
+                                <code>@product.Sku</code>
+                            }
+                            else
+                            {
+                                <span class="text-muted">-</span>
+                            }
+                        </td>
+                        <td><strong>@product.ProductName</strong></td>
+                        <td><span class="badge bg-light text-dark">@product.CategoryName</span></td>
+                        <td>
+                            <span class="badge bg-primary" style="font-size: 0.9rem;">
+                                @product.QuantitySold unidades
+                            </span>
+                        </td>
+                        <td>@product.UnitPrice.ToString("C")</td>
+                        <td><strong class="text-success">@product.Revenue.ToString("C")</strong></td>
+                        <td>
+                            @if (product.CurrentStock == 0)
+                            {
+                                <span class="badge bg-danger">Sin stock</span>
+                            }
+                            else if (product.CurrentStock < 10)
+                            {
+                                <span class="badge bg-warning text-dark">@product.CurrentStock</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-success">@product.CurrentStock</span>
+                            }
+                        </td>
+                    </tr>
+                    rank++;
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
