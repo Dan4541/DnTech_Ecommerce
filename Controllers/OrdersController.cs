@@ -119,41 +119,33 @@ namespace DnTech_Ecommerce.Controllers
 
             return View(viewModel);
         }
-
-        // POST: /Orders/Cancel/5
+        
+        // POST: /Orders/Cancel/{id}
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Cancel(int id)
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-            var order = await _context.Orders
-                .Include(o => o.Items)
-                    .ThenInclude(oi => oi.Product)
-                .FirstOrDefaultAsync(o => o.Id == id && o.UserId == userId);
-
-            if (order == null)
-            {
-                return Json(new { success = false, message = "Pedido no encontrado" });
-            }
-
-            // Solo se puede cancelar si está pendiente
-            if (order.Status != OrderStatus.Pending)
-            {
-                return Json(new
-                {
-                    success = false,
-                    message = "Solo se pueden cancelar pedidos pendientes"
-                });
-            }
-
             try
             {
-                // Cambiar estado a cancelado
-                order.Status = OrderStatus.Cancelled;
-                order.PaymentStatus = PaymentStatus.Refunded;
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                
+                var order = await _context.Orders
+                    .Include(o => o.Items)
+                        .ThenInclude(oi => oi.Product)
+                    .FirstOrDefaultAsync(o => o.Id == id && o.UserId == userId);
 
-                // Devolver stock a los productos
+                if (order == null)
+                {
+                    return Json(new { success = false, message = "Pedido no encontrado." });
+                }
+
+                // Solo se pueden cancelar pedidos pendientes
+                if (order.Status != OrderStatus.Pending)
+                {
+                    return Json(new { success = false, message = "Solo se pueden cancelar pedidos pendientes." });
+                }
+
+                // Restaurar stock
                 foreach (var item in order.Items)
                 {
                     if (item.Product != null)
@@ -162,22 +154,35 @@ namespace DnTech_Ecommerce.Controllers
                     }
                 }
 
+                // Cambiar estado del pedido
+                order.Status = OrderStatus.Cancelled;
+                
+                // ACTUALIZAR ESTADO DEL PAGO SOLO SI YA ESTABA PAGADO
+                if (order.PaymentStatus == PaymentStatus.Completed)
+                {
+                    // Si ya se pagó (ej: PayPal), marcar como Reembolsado
+                    order.PaymentStatus = PaymentStatus.Refunded;
+                }
+                // Si está Pending, se mantiene Pending (nunca se intentó pagar)
+                // PaymentStatus.Failed solo se usa cuando falla el procesamiento del pago
+
                 await _context.SaveChangesAsync();
 
-                return Json(new
-                {
-                    success = true,
-                    message = "Pedido cancelado correctamente. El stock ha sido restaurado."
+                return Json(new { 
+                    success = true, 
+                    message = "Pedido cancelado exitosamente. El stock ha sido restaurado." 
                 });
             }
             catch (Exception ex)
             {
-                return Json(new
-                {
-                    success = false,
-                    message = "Error al cancelar el pedido: " + ex.Message
+                return Json(new { 
+                    success = false, 
+                    message = $"Error al cancelar el pedido: {ex.Message}" 
                 });
             }
         }
+
+
+
     }
 }

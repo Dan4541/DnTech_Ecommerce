@@ -276,13 +276,19 @@
                 @switch (Model.PaymentStatus)
                 {
                     case PaymentStatus.Pending:
-                        <span class="badge bg-warning text-dark mt-1">Pendiente</span>
+                        <span class="badge bg-warning text-dark">Pendiente</span>
                         break;
                     case PaymentStatus.Completed:
-                        <span class="badge bg-success mt-1">Completado</span>
+                        <span class="badge bg-success">Completado</span>
                         break;
                     case PaymentStatus.Failed:
-                        <span class="badge bg-danger mt-1">Fallido</span>
+                        <span class="badge bg-danger">Fallido</span>
+                        break;
+                    case PaymentStatus.Refunded:
+                        <span class="badge bg-info">Reembolsado</span>
+                        break;
+                    default:
+                        <span class="badge bg-secondary">Desconocido</span>
                         break;
                 }
             </div>

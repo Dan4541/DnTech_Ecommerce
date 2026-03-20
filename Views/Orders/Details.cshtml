@@ -351,7 +351,7 @@
         return status switch
         {
             PaymentStatus.Pending => "Pendiente",
-            PaymentStatus.Paid => "Pagado",
+            PaymentStatus.Completed => "Completado",
             PaymentStatus.Failed => "Fallido",
             PaymentStatus.Refunded => "Reembolsado",
             _ => "Desconocido"
@@ -363,7 +363,7 @@
         return status switch
         {
             PaymentStatus.Pending => "warning",
-            PaymentStatus.Paid => "success",
+            PaymentStatus.Completed => "success",
             PaymentStatus.Failed => "danger",
             PaymentStatus.Refunded => "info",
             _ => "secondary"

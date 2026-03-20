@@ -4,7 +4,6 @@ using DnTech_Ecommerce.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
-using OfficeOpenXml;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -48,7 +47,6 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.SlidingExpiration = true;
 });
 
-
 // Registrar servicio de reportes
 builder.Services.AddScoped<ReportService>();
 builder.Services.AddScoped<PayPalService>();
@@ -80,8 +78,6 @@ builder.Services.AddCors(options =>
             .AllowCredentials();
     });
 });
-
-
 
 var app = builder.Build();
 

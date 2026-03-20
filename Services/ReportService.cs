@@ -8,7 +8,6 @@ using OfficeOpenXml.Style;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
-using System.Drawing;
 
 namespace DnTech_Ecommerce.Services
 {
@@ -16,13 +15,16 @@ namespace DnTech_Ecommerce.Services
     {
         private readonly ApplicationDbContext _context;
 
+        
+        static ReportService()
+        {
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;            
+        }
+        
+
         public ReportService(ApplicationDbContext context)
         {
-            _context = context;
-            if (ExcelPackage.LicenseContext == LicenseContext.Commercial)
-            {
-                ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
-            }
+            _context = context;            
             QuestPDF.Settings.License = LicenseType.Community;
         }
 
@@ -129,6 +131,8 @@ namespace DnTech_Ecommerce.Services
         // EXPORTAR A EXCEL
         // ============================================
 
+        // MÉTODO 1: ExportSalesReportToExcel        
+
         public async Task<byte[]> ExportSalesReportToExcel(SalesReportViewModel report)
         {
             using var package = new ExcelPackage();
@@ -208,9 +212,12 @@ namespace DnTech_Ecommerce.Services
             worksheet.Cells[$"E{row}"].Value = "Items";
             worksheet.Cells[$"F{row}"].Value = "Total";
             worksheet.Cells[$"G{row}"].Value = "Estado";
-            worksheet.Cells[$"A{row}:G{row}"].Style.Font.Bold = true;
-            worksheet.Cells[$"A{row}:G{row}"].Style.Fill.PatternType = ExcelFillStyle.Solid;
-            worksheet.Cells[$"A{row}:G{row}"].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.LightGray);
+            
+            // Estilo de encabezados (sin System.Drawing.Color)
+            var headerRange = worksheet.Cells[$"A{row}:G{row}"];
+            headerRange.Style.Font.Bold = true;
+            headerRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+            headerRange.Style.Fill.BackgroundColor.SetColor(211, 211, 211, 255); // RGB para LightGray
             row++;
 
             // Datos
@@ -233,8 +240,11 @@ namespace DnTech_Ecommerce.Services
             return await Task.FromResult(package.GetAsByteArray());
         }
 
+        // ============================================
+
         public async Task<byte[]> ExportProductReportToExcel(ProductReportViewModel report)
         {
+
             using var package = new ExcelPackage();
             var worksheet = package.Workbook.Worksheets.Add("Reporte de Productos");
 
@@ -285,10 +295,12 @@ namespace DnTech_Ecommerce.Services
             worksheet.Cells[$"D{row}"].Value = "Cantidad Vendida";
             worksheet.Cells[$"E{row}"].Value = "Precio Unitario";
             worksheet.Cells[$"F{row}"].Value = "Ingresos";
-            worksheet.Cells[$"G{row}"].Value = "Stock Actual";
-            worksheet.Cells[$"A{row}:G{row}"].Style.Font.Bold = true;
-            worksheet.Cells[$"A{row}:G{row}"].Style.Fill.PatternType = ExcelFillStyle.Solid;
-            worksheet.Cells[$"A{row}:G{row}"].Style.Fill.BackgroundColor.SetColor(System.Drawing.Color.LightGray);
+            worksheet.Cells[$"G{row}"].Value = "Stock Actual";    
+
+            var headerRange = worksheet.Cells[$"A{row}:G{row}"];
+            headerRange.Style.Font.Bold = true;
+            headerRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+            headerRange.Style.Fill.BackgroundColor.SetColor(211, 211, 211, 255); // RGB para LightGray
             row++;
 
             // Datos
