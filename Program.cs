@@ -50,6 +50,7 @@ builder.Services.ConfigureApplicationCookie(options =>
 // Registrar servicio de reportes
 builder.Services.AddScoped<ReportService>();
 builder.Services.AddScoped<PayPalService>();
+builder.Services.AddScoped<StripeService>();
 
 builder.Services.AddControllersWithViews();
 

@@ -19,6 +19,7 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="QuestPDF" Version="2026.2.1" />
+    <PackageReference Include="Stripe.net" Version="51.0.0" />
   </ItemGroup>
 
 </Project>

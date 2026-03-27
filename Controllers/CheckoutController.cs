@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using System.Text.Json;
 
 namespace DnTech_Ecommerce.Controllers
 {
@@ -17,12 +18,14 @@ namespace DnTech_Ecommerce.Controllers
         private readonly ApplicationDbContext _context;
         private readonly UserManager<User> _userManager;
         private readonly PayPalService _payPalService;
+        private readonly StripeService _stripeService;
 
-        public CheckoutController(ApplicationDbContext context, UserManager<User> userManager, PayPalService payPalService)
+        public CheckoutController(ApplicationDbContext context, UserManager<User> userManager, PayPalService payPalService, StripeService stripeService)
         {
             _context = context;
             _userManager = userManager;
             _payPalService = payPalService;
+            _stripeService = stripeService;
         }
 
         // GET: /Checkout
@@ -281,6 +284,197 @@ namespace DnTech_Ecommerce.Controllers
 
             return View(viewModel);
         }
+
+        // ============================================
+        // NUEVOS MÉTODOS PARA STRIPE
+        // ============================================
+ 
+        // POST: /Checkout/CreateStripePaymentIntent
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CreateStripePaymentIntent(CheckoutViewModel model)
+        {
+            try
+            {
+                // 1. GUARDAR LOS DATOS EN SESIÓN PRIMERO
+                if (model != null)
+                {
+                    HttpContext.Session.SetString("CheckoutData", JsonSerializer.Serialize(model));
+                }
+
+                // Obtener datos del checkout de la sesión
+                var checkoutDataJson = HttpContext.Session.GetString("CheckoutData");
+                if (string.IsNullOrEmpty(checkoutDataJson))
+                {
+                    return Json(new { success = false, message = "Datos de checkout no encontrados." });
+                }
+
+                var checkoutData = JsonSerializer.Deserialize<CheckoutViewModel>(checkoutDataJson);
+                if (checkoutData == null)
+                {
+                    return Json(new { success = false, message = "Error al deserializar datos de checkout." });
+                }
+
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                var cartItems = await _context.CartItems
+                    .Include(c => c.Product)
+                    .Where(c => c.Cart.UserId == userId)
+                    .ToListAsync();
+
+                if (!cartItems.Any())
+                {
+                    return Json(new { success = false, message = "El carrito está vacío." });
+                }
+
+                // Calcular total
+                decimal subtotal = cartItems.Sum(item => item.Product.Price * item.Quantity);
+                decimal shippingCost = subtotal >= 1000 ? 0 : 50;
+                decimal tax = subtotal * 0.16m;
+                decimal total = subtotal + shippingCost + tax;
+
+                // Crear PaymentIntent en Stripe
+                var result = await _stripeService.CreatePaymentIntent(
+                    total, 
+                    "usd",
+                    checkoutData.ShippingEmail
+                );
+
+                if (result.success)
+                {
+                    // Guardar el PaymentIntent ID en sesión
+                    HttpContext.Session.SetString("StripePaymentIntentId", result.paymentIntentId);
+
+                    return Json(new { 
+                        success = true, 
+                        clientSecret = result.clientSecret,
+                        paymentIntentId = result.paymentIntentId
+                    });
+                }
+
+                return Json(new { success = false, message = result.message });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = $"Error: {ex.Message}" });
+            }
+        }
+        
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ConfirmStripePayment([FromBody] StripePaymentConfirmRequest request)
+        {
+            try
+            {
+                // Verificar que el pago se completó
+                var result = await _stripeService.ConfirmPayment(request.PaymentIntentId);
+
+                if (!result.success)
+                {
+                    return Json(new { success = false, message = result.message });
+                }
+
+                // Obtener datos del checkout
+                var checkoutDataJson = HttpContext.Session.GetString("CheckoutData");
+                if (string.IsNullOrEmpty(checkoutDataJson))
+                {
+                    return Json(new { success = false, message = "Datos de checkout no encontrados." });
+                }
+
+                var checkoutData = JsonSerializer.Deserialize<CheckoutViewModel>(checkoutDataJson);
+
+                // Crear la orden en la base de datos
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                var cartItems = await _context.CartItems
+                    .Include(c => c.Product)
+                    .Where(c => c.Cart.UserId == userId)
+                    .ToListAsync();
+
+                if (!cartItems.Any())
+                {
+                    return Json(new { success = false, message = "El carrito está vacío." });
+                }
+
+                // Calcular totales
+                decimal subtotal = cartItems.Sum(item => item.Product.Price * item.Quantity);
+                decimal shippingCost = subtotal >= 1000 ? 0 : 50;
+                decimal tax = subtotal * 0.16m;
+                decimal total = subtotal + shippingCost + tax;
+
+                // Crear orden
+                var order = new Order
+                {
+                    UserId = userId,
+                    OrderNumber = GenerateOrderNumber(),
+                    OrderDate = DateTime.Now,
+                    Status = OrderStatus.Pending,
+                    
+                    // Información de envío (NOMBRES CORRECTOS)
+                    ShippingFullName = checkoutData.ShippingFullName,
+                    ShippingEmail = checkoutData.ShippingEmail,
+                    ShippingPhone = checkoutData.ShippingPhone,
+                    ShippingAddress = checkoutData.ShippingAddress,
+                    ShippingCity = checkoutData.ShippingCity,
+                    ShippingState = checkoutData.ShippingState,
+                    ShippingPostalCode = checkoutData.ShippingPostalCode,
+                    ShippingCountry = checkoutData.ShippingCountry,
+                    
+                    // Totales
+                    Subtotal = subtotal,
+                    ShippingCost = shippingCost,
+                    Tax = tax,
+                    Total = total,
+                    
+                    // Pago con tarjeta (Stripe)
+                    PaymentMethod = checkoutData.PaymentMethod,
+                    PaymentStatus = PaymentStatus.Completed,
+                    PaymentTransactionId = result.transactionId,
+                    
+                    // Notas
+                    Notes = checkoutData.Notes,
+                    
+                    // Items
+                    Items = cartItems.Select(item => new OrderItem
+                    {
+                        ProductId = item.ProductId,
+                        ProductName = item.Product.Name,
+                        ProductSku = item.Product.Sku,
+                        Price = item.Product.Price,
+                        Quantity = item.Quantity
+                    }).ToList()
+                };
+
+                // Reducir stock
+                foreach (var cartItem in cartItems)
+                {
+                    cartItem.Product.StockQuantity -= cartItem.Quantity;
+                }
+
+                _context.Orders.Add(order);
+                _context.CartItems.RemoveRange(cartItems);
+                await _context.SaveChangesAsync();
+
+                // Limpiar sesión
+                HttpContext.Session.Remove("CheckoutData");
+                HttpContext.Session.Remove("StripePaymentIntentId");
+
+                return Json(new { 
+                    success = true, 
+                    orderId = order.Id,
+                    orderNumber = order.OrderNumber 
+                });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = $"Error: {ex.Message}" });
+            }
+        }
+
+        // Clase auxiliar para recibir confirmación de Stripe
+        public class StripePaymentConfirmRequest
+        {
+            public string PaymentIntentId { get; set; } = string.Empty;
+        }
+
 
         // ============================================
         // MÉTODOS AUXILIARES PRIVADOS

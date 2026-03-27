@@ -1,4 +1,5 @@
-﻿@using DnTech_Ecommerce.ViewModels
+﻿@inject IConfiguration Configuration
+@using DnTech_Ecommerce.ViewModels
 @model CheckoutViewModel
 @{
     ViewData["Title"] = "Checkout - Finalizar Compra";
@@ -193,8 +194,30 @@
                             </div>
                         </div>
                         <span asp-validation-for="PaymentMethod" class="text-danger"></span>
+                    </div>                
+                </div>
+
+                <!-- Contenedor para Stripe Card Element -->
+                <div id="card-element-container" class="mt-4 d-none">
+                    <div class="card border-primary">
+                        <div class="card-header bg-primary text-white">
+                            <i class="bi bi-credit-card me-2"></i>Información de la Tarjeta
+                        </div>
+                        <div class="card-body">
+                            <!-- Stripe Elements se montará aquí -->
+                            <div id="card-element" class="form-control" style="height: 40px; padding-top: 10px;"></div>
+                            
+                            <!-- Errores de validación -->
+                            <div id="card-errors" class="text-danger mt-2 d-none"></div>
+                            
+                            <small class="text-muted d-block mt-3">
+                                <i class="bi bi-shield-check me-1"></i>
+                                Tu información está segura y encriptada
+                            </small>
+                        </div>
                     </div>
                 </div>
+
 
                 <!-- Notas Adicionales -->
                 <div class="card border-0 shadow-sm mb-4">
@@ -339,6 +362,9 @@
     </div>
 </div>
 
+<!-- Stripe.js -->
+<script src="https://js.stripe.com/v3/"></script>
+
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
 
@@ -435,5 +461,239 @@
                 showNotification('@TempData["Error"]', 'error');
                 </text>
         }
+
+        // ============================================
+        // CONFIGURACIÓN DE STRIPE
+        // ============================================        
+        const stripePublishableKey = '@Configuration["Stripe:PublishableKey"]';
+        const stripe = Stripe(stripePublishableKey);
+
+        let elements;
+        let cardElement;
+        let paymentIntentClientSecret = null;
+
+        // Función para obtener token antiforgery
+        function getToken() {
+            return document.querySelector('input[name="__RequestVerificationToken"]').value;
+        }
+
+        // Inicializar Stripe Elements cuando se seleccione tarjeta
+        function initializeStripeElements() {
+            if (elements) return; // Ya inicializado
+
+            // Crear Elements instance
+            elements = stripe.elements();
+
+            // Crear Card Element
+            cardElement = elements.create('card', {
+                style: {
+                    base: {
+                        fontSize: '16px',
+                        color: '#32325d',
+                        fontFamily: '"Helvetica Neue", Helvetica, sans-serif',
+                        '::placeholder': {
+                            color: '#aab7c4'
+                        }
+                    },
+                    invalid: {
+                        color: '#fa755a',
+                        iconColor: '#fa755a'
+                    }
+                }
+            });
+
+            // Montar el elemento en el DOM
+            const cardElementContainer = document.getElementById('card-element');
+            if (cardElementContainer) {
+                cardElement.mount('#card-element');
+            }
+
+            // Mostrar errores de validación
+            cardElement.on('change', function(event) {
+                const displayError = document.getElementById('card-errors');
+                if (event.error) {
+                    displayError.textContent = event.error.message;
+                    displayError.classList.remove('d-none');
+                } else {
+                    displayError.textContent = '';
+                    displayError.classList.add('d-none');
+                }
+            });
+        }
+
+        // ============================================
+        // PROCESAR PAGO CON STRIPE
+        // ============================================
+
+        async function processStripePayment() {
+            try {
+                // Crear FormData para enviar el token antiforgery
+                const formElement = document.getElementById('checkoutForm');
+                const formData = new FormData(formElement);                
+
+                // Crear PaymentIntent en el servidor
+                const response = await fetch('/Checkout/CreateStripePaymentIntent', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (!data.success) {
+                    showNotification(data.message, 'error');
+                    return false;
+                }
+
+                paymentIntentClientSecret = data.clientSecret;
+
+                // Confirmar el pago con Stripe
+                const { error, paymentIntent } = await stripe.confirmCardPayment(paymentIntentClientSecret, {
+                    payment_method: {
+                        card: cardElement
+                    }
+                });
+
+                if (error) {
+                    showNotification(error.message, 'error');
+                    return false;
+                }
+
+                if (paymentIntent.status === 'succeeded') {
+                    // Confirmar en el servidor y crear la orden
+                    const confirmResponse = await fetch('/Checkout/ConfirmStripePayment', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': getToken()
+                        },
+                        body: JSON.stringify({
+                            paymentIntentId: paymentIntent.id
+                        })
+                    });
+
+                    const confirmData = await confirmResponse.json();
+
+                    if (confirmData.success) {
+                        showNotification('¡Pago exitoso! Redirigiendo...', 'success');
+                        setTimeout(() => {
+                            window.location.href = `/Checkout/Confirmation/${confirmData.orderId}`;
+                        }, 1500);
+                        return true;
+                    } else {
+                        showNotification(confirmData.message, 'error');
+                        return false;
+                    }
+                }
+
+                return false;
+            } catch (error) {
+                console.error('Error processing Stripe payment:', error);
+                showNotification('Error al procesar el pago', 'error');
+                return false;
+            }
+        }
+
+        // ============================================
+        // INICIALIZAR CUANDO SE SELECCIONA TARJETA
+        // ============================================
+
+        document.querySelectorAll('input[name="PaymentMethod"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                // Comparar con los valores STRING correctos
+                if (this.value === 'CreditCard' || this.value === 'DebitCard') {
+                    initializeStripeElements();
+                    
+                    // Mostrar el contenedor de la tarjeta
+                    const cardContainer = document.getElementById('card-element-container');
+                    if (cardContainer) {
+                        cardContainer.classList.remove('d-none');
+                    }
+                } else {
+                    // Ocultar el contenedor de la tarjeta
+                    const cardContainer = document.getElementById('card-element-container');
+                    if (cardContainer) {
+                        cardContainer.classList.add('d-none');
+                    }
+                }
+            });
+        });
+
+        // ============================================
+        // MODIFICAR SUBMIT DEL FORMULARIO
+        // ============================================
+
+        // Usar el ID correcto del formulario
+        const checkoutForm = document.getElementById('checkoutForm');
+
+        // Guardar el handler original
+        const originalSubmitHandler = checkoutForm.onsubmit;
+
+        // Reemplazar con nuestro handler
+        checkoutForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            // Validar términos y condiciones
+            const acceptTerms = document.getElementById('acceptTerms');
+            if (!acceptTerms.checked) {
+                showNotification('Debes aceptar los términos y condiciones', 'warning');
+                acceptTerms.focus();
+                return false;
+            }
+
+            // Validar formulario
+            if (!this.checkValidity()) {
+                e.stopPropagation();
+                this.classList.add('was-validated');
+                return;
+            }
+
+            const submitButton = document.getElementById('submitOrder');
+            const originalButtonText = submitButton.innerHTML;
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Procesando...';
+
+            try {
+                // Obtener método de pago seleccionado
+                const paymentMethodRadio = document.querySelector('input[name="PaymentMethod"]:checked');
+                const paymentMethod = paymentMethodRadio ? paymentMethodRadio.value : null;
+
+                // Comparar con valores STRING
+                if (paymentMethod === 'CreditCard' || paymentMethod === 'DebitCard') {
+                    // Procesar con Stripe
+                    const success = await processStripePayment();
+                    
+                    if (!success) {
+                        submitButton.disabled = false;
+                        submitButton.innerHTML = originalButtonText;
+                    }
+                } else {
+                    // Procesar con otros métodos (PayPal, etc.)
+                    const formData = new FormData(this);
+                    const response = await fetch('/Checkout/ProcessOrder', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        if (data.redirectUrl) {
+                            window.location.href = data.redirectUrl;
+                        } else {
+                            window.location.href = `/Checkout/Confirmation/${data.orderId}`;
+                        }
+                    } else {
+                        showNotification(data.message, 'error');
+                        submitButton.disabled = false;
+                        submitButton.innerHTML = originalButtonText;
+                    }
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showNotification('Error al procesar el pedido', 'error');
+                submitButton.disabled = false;
+                submitButton.innerHTML = originalButtonText;
+            }
+        });
     </script>
 }
