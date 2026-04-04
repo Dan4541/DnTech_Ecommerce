@@ -1,0 +1,161 @@
+@model List<DnTech_Ecommerce.Models.Notification>
+@{
+    ViewData["Title"] = "Mis Notificaciones";
+    Layout = "_Layout";
+}
+
+<div class="container py-5">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a asp-controller="Home" asp-action="Index">Inicio</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Notificaciones</li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="fw-bold mb-0">
+            <i class="bi bi-bell me-2"></i>Mis Notificaciones
+        </h1>
+        @if (Model.Any(n => !n.IsRead))
+        {
+            <button class="btn btn-outline-primary" id="markAllAsReadBtn">
+                <i class="bi bi-check-all me-2"></i>Marcar todas como leídas
+            </button>
+        }
+    </div>
+
+    @if (!Model.Any())
+    {
+        <!-- Sin notificaciones -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-bell-slash display-1 text-muted mb-3"></i>
+                <h5 class="text-muted">No tienes notificaciones</h5>
+                <p class="text-muted mb-4">Te notificaremos cuando haya novedades sobre tus pedidos</p>
+                <a asp-controller="Products" asp-action="Index" class="btn btn-primary">
+                    <i class="bi bi-shop me-2"></i>Ir a la tienda
+                </a>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Lista de notificaciones -->
+        <div class="row">
+            <div class="col-lg-8 mx-auto">
+                @foreach (var notification in Model)
+                {
+                    var iconInfo = GetNotificationIcon(notification.Type);
+                    var unreadClass = notification.IsRead ? "" : "border-start border-primary border-4";
+                    var bgClass = notification.IsRead ? "" : "bg-light";
+
+                    <div class="card mb-3 @unreadClass @bgClass notification-card" data-id="@notification.Id">
+                        <div class="card-body">
+                            <div class="d-flex align-items-start">
+                                <!-- Icono -->
+                                <div class="notification-icon @iconInfo.Class me-3">
+                                    <i class="bi @iconInfo.Icon"></i>
+                                </div>
+
+                                <!-- Contenido -->
+                                <div class="flex-grow-1">
+                                    <p class="mb-2">@notification.Message</p>
+                                    
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <small class="text-muted">
+                                            <i class="bi bi-clock me-1"></i>
+                                            @notification.CreatedAt.ToString("dd/MM/yyyy HH:mm")
+                                        </small>
+
+                                        <div>
+                                            @if (!string.IsNullOrEmpty(notification.Link))
+                                            {
+                                                <a href="@notification.Link" class="btn btn-sm btn-outline-primary me-2">
+                                                    <i class="bi bi-eye me-1"></i>Ver detalles
+                                                </a>
+                                            }
+                                            
+                                            @if (!notification.IsRead)
+                                            {
+                                                <button class="btn btn-sm btn-outline-secondary mark-read-btn" data-id="@notification.Id">
+                                                    <i class="bi bi-check me-1"></i>Marcar como leída
+                                                </button>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@functions {
+    private (string Icon, string Class) GetNotificationIcon(NotificationType type)
+    {
+        return type switch
+        {
+            NotificationType.NewOrder => ("bi-cart-check", "new-order"),
+            NotificationType.OrderStatusChange => ("bi-arrow-repeat", "order-status"),
+            NotificationType.OrderShipped => ("bi-truck", "order-shipped"),
+            NotificationType.OrderDelivered => ("bi-house-check", "order-delivered"),
+            NotificationType.OrderCancelled => ("bi-x-circle", "order-status"),
+            NotificationType.PaymentConfirmed => ("bi-check-circle", "payment"),
+            NotificationType.System => ("bi-info-circle", "system"),
+            _ => ("bi-bell", "system")
+        };
+    }
+}
+
+@section Scripts {
+    <script>
+        // Marcar individual como leída
+        document.querySelectorAll('.mark-read-btn').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const id = this.getAttribute('data-id');
+                const card = document.querySelector(`.notification-card[data-id="${id}"]`);
+                
+                try {
+                    const formData = new FormData();
+                    formData.append('id', id);
+
+                    const response = await fetch('/Notifications/MarkAsRead', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        card.classList.remove('border-start', 'border-primary', 'border-4', 'bg-light');
+                        this.remove();
+                    }
+                } catch (err) {
+                    console.error('Error:', err);
+                }
+            });
+        });
+
+        // Marcar todas como leídas
+        document.getElementById('markAllAsReadBtn')?.addEventListener('click', async function() {
+            try {
+                const response = await fetch('/Notifications/MarkAllAsRead', {
+                    method: 'POST'
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    location.reload();
+                }
+            } catch (err) {
+                console.error('Error:', err);
+            }
+        });
+    </script>
+}

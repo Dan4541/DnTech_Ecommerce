@@ -54,6 +54,45 @@
                             </span>
                         </a>
 
+                        <!-- Icono de Notificaciones -->
+                        <li class="nav-item dropdown me-3">
+                            <a class="nav-link position-relative" href="#" id="notificationsDropdown" 
+                            role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-bell fs-5"></i>
+                                <!-- Badge con contador (oculto si es 0) -->
+                                <span id="notificationBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="display: none;">
+                                    0
+                                </span>
+                            </a>
+                            
+                            <!-- Dropdown de notificaciones -->
+                            <div class="dropdown-menu dropdown-menu-end notification-dropdown" aria-labelledby="notificationsDropdown" style="width: 350px; max-height: 500px;">
+                                <!-- Header -->
+                                <div class="dropdown-header d-flex justify-content-between align-items-center border-bottom pb-2">
+                                    <h6 class="mb-0 fw-bold">Notificaciones</h6>
+                                    <button type="button" class="btn btn-sm btn-link text-decoration-none p-0" id="markAllAsRead">
+                                        <small>Marcar todas como leídas</small>
+                                    </button>
+                                </div>
+                                
+                                <!-- Lista de notificaciones -->
+                                <div id="notificationsList" class="notification-list" style="max-height: 400px; overflow-y: auto;">
+                                    <!-- Las notificaciones se cargarán aquí vía JavaScript -->
+                                    <div class="text-center py-4 text-muted">
+                                        <i class="bi bi-bell-slash fs-3 d-block mb-2"></i>
+                                        <small>No tienes notificaciones</small>
+                                    </div>
+                                </div>
+                                
+                                <!-- Footer -->
+                                <div class="dropdown-footer border-top pt-2">
+                                    <a href="/Notifications" class="dropdown-item text-center small text-primary">
+                                        Ver todas las notificaciones
+                                    </a>
+                                </div>
+                            </div>
+                        </li>
+
 
                         <!-- Menú desplegable del usuario -->
                         <div class="dropdown">
@@ -163,6 +202,8 @@
     <!-- Scripts -->    
     <script src="~/lib/jquery/jquery.min.js"></script>
     <script src="~/lib/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <!-- SignalR Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.0/signalr.min.js"></script>
 
     <script>
         // Script para mostrar/ocultar contraseña
@@ -212,6 +253,260 @@
                 .catch(error => {
                     console.error('Error al obtener contador del carrito:', error);
                 });
+        }
+
+        // ============================================
+        // CONFIGURACIÓN DE SIGNALR Y NOTIFICACIONES
+        // ============================================
+        
+        @if (User.Identity?.IsAuthenticated == true)
+        {
+            <text>
+            let notificationConnection = null;
+
+            // Conectar a SignalR Hub
+            async function connectNotificationHub() {
+                try {
+                    notificationConnection = new signalR.HubConnectionBuilder()
+                        .withUrl("/notificationHub")
+                        .withAutomaticReconnect()
+                        .build();
+
+                    // Evento: Recibir notificación
+                    notificationConnection.on("ReceiveNotification", function(notification) {
+                        console.log("Nueva notificación recibida:", notification);
+                        
+                        // Actualizar badge
+                        updateNotificationBadge();
+                        
+                        // Añadir a la lista
+                        addNotificationToList(notification);
+                        
+                        // Animación de campana
+                        const bellIcon = document.querySelector('#notificationsDropdown i');
+                        if (bellIcon) {
+                            bellIcon.classList.add('bell-ring');
+                            setTimeout(() => bellIcon.classList.remove('bell-ring'), 500);
+                        }
+                        
+                        // Toast opcional
+                        if (typeof showNotification === 'function') {
+                            showNotification(notification.message, 'info');
+                        }
+                    });
+
+                    // Conectar
+                    await notificationConnection.start();
+                    console.log("SignalR connected");
+                    
+                    // Cargar notificaciones iniciales
+                    await loadNotifications();
+                    
+                } catch (err) {
+                    console.error("SignalR connection error:", err);
+                    setTimeout(connectNotificationHub, 5000); // Reintentar en 5s
+                }
+            }
+
+            // Cargar notificaciones
+            async function loadNotifications() {
+                try {
+                    const response = await fetch('/Notifications/GetRecent?count=10');
+                    const notifications = await response.json();
+                    
+                    const listContainer = document.getElementById('notificationsList');
+                    if (!notifications || notifications.length === 0) {
+                        listContainer.innerHTML = `
+                            <div class="text-center py-4 text-muted">
+                                <i class="bi bi-bell-slash fs-3 d-block mb-2"></i>
+                                <small>No tienes notificaciones</small>
+                            </div>
+                        `;
+                        return;
+                    }
+                    
+                    listContainer.innerHTML = '';
+                    notifications.forEach(n => addNotificationToList(n, false));
+                    
+                    // Actualizar badge
+                    updateNotificationBadge();
+                    
+                } catch (err) {
+                    console.error("Error loading notifications:", err);
+                }
+            }
+
+            // Agregar notificación a la lista
+            function addNotificationToList(notification, prepend = true) {
+                const listContainer = document.getElementById('notificationsList');
+                
+                // Si está vacío, limpiar mensaje de "no hay notificaciones"
+                if (listContainer.querySelector('.text-muted')) {
+                    listContainer.innerHTML = '';
+                }
+                
+                const icon = getNotificationIcon(notification.type);
+                const notifHtml = `
+                    <a href="${notification.link || '#'}" 
+                    class="notification-item ${notification.isRead ? '' : 'unread'}" 
+                    data-id="${notification.id}"
+                    onclick="markNotificationAsRead(${notification.id})">
+                        <div class="notification-content">
+                            <div class="notification-icon ${icon.class}">
+                                <i class="bi ${icon.icon}"></i>
+                            </div>
+                            <div class="notification-text">
+                                <p class="notification-message">${notification.message}</p>
+                                <small class="notification-time">${notification.createdAt}</small>
+                            </div>
+                        </div>
+                    </a>
+                `;
+                
+                if (prepend) {
+                    listContainer.insertAdjacentHTML('afterbegin', notifHtml);
+                } else {
+                    listContainer.insertAdjacentHTML('beforeend', notifHtml);
+                }
+            }
+
+            // Obtener icono según tipo
+            function getNotificationIcon(type) {
+                const icons = {
+                    'NewOrder': { icon: 'bi-cart-check', class: 'new-order' },
+                    'OrderStatusChange': { icon: 'bi-arrow-repeat', class: 'order-status' },
+                    'OrderShipped': { icon: 'bi-truck', class: 'order-shipped' },
+                    'OrderDelivered': { icon: 'bi-house-check', class: 'order-delivered' },
+                    'OrderCancelled': { icon: 'bi-x-circle', class: 'order-cancelled' },
+                    'PaymentConfirmed': { icon: 'bi-check-circle', class: 'payment' },
+                    'System': { icon: 'bi-info-circle', class: 'system' }
+                };
+                return icons[type] || { icon: 'bi-bell', class: 'system' };
+            }
+
+            // Actualizar badge de contador
+            async function updateNotificationBadge() {
+                try {
+                    const response = await fetch('/Notifications/GetUnreadCount');
+                    const data = await response.json();
+                    
+                    const badge = document.getElementById('notificationBadge');
+                    if (data.count > 0) {
+                        badge.textContent = data.count > 99 ? '99+' : data.count;
+                        badge.style.display = 'inline-block';
+                    } else {
+                        badge.style.display = 'none';
+                    }
+                } catch (err) {
+                    console.error("Error updating badge:", err);
+                }
+            }
+
+            // Marcar notificación como leída
+            async function markNotificationAsRead(notificationId) {
+                try {
+                    await fetch('/Notifications/MarkAsRead', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+                        },
+                        body: JSON.stringify({ id: notificationId })
+                    });
+                    
+                    // Actualizar UI
+                    const notifElement = document.querySelector(`[data-id="${notificationId}"]`);
+                    if (notifElement) {
+                        notifElement.classList.remove('unread');
+                    }
+                    
+                    updateNotificationBadge();
+                    
+                } catch (err) {
+                    console.error("Error marking as read:", err);
+                }
+            }
+
+            // Marcar todas como leídas
+            document.getElementById('markAllAsRead')?.addEventListener('click', async function(e) {
+                e.preventDefault();
+                try {
+                    await fetch('/Notifications/MarkAllAsRead', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+                        }
+                    });
+                    
+                    // Actualizar UI - marcar todas como leídas
+                    document.querySelectorAll('.notification-item.unread').forEach(item => {
+                        item.classList.remove('unread');
+                    });
+                    
+                    updateNotificationBadge();
+                    
+                    // Opcional: mostrar mensaje de éxito
+                    if (typeof showNotification === 'function') {
+                        showNotification('Todas las notificaciones marcadas como leídas', 'success');
+                    }
+                    
+                } catch (err) {
+                    console.error("Error marking all as read:", err);
+                }
+            });
+
+            // Verificar nuevas notificaciones cada 30 segundos (fallback si SignalR falla)
+            let pollInterval = setInterval(async () => {
+                if (!notificationConnection || notificationConnection.state !== signalR.HubConnectionState.Connected) {
+                    await updateNotificationBadge();
+                }
+            }, 30000);
+
+            // Manejar cierre/desconexión de la ventana
+            window.addEventListener('beforeunload', function() {
+                if (pollInterval) {
+                    clearInterval(pollInterval);
+                }
+                if (notificationConnection) {
+                    notificationConnection.stop();
+                }
+            });
+
+            // Inicializar todo cuando el DOM esté listo
+            document.addEventListener('DOMContentLoaded', function() {
+                connectNotificationHub();
+                
+                // Cargar notificaciones al abrir el dropdown
+                const dropdownToggle = document.querySelector('#notificationsDropdown');
+                if (dropdownToggle) {
+                    dropdownToggle.addEventListener('click', function() {
+                        loadNotifications();
+                    });
+                }
+            });
+
+            </text>
+        }
+        else
+        {
+            <text>
+            // Usuario no autenticado - limpiar cualquier notificación visible
+            document.addEventListener('DOMContentLoaded', function() {
+                const badge = document.getElementById('notificationBadge');
+                if (badge) badge.style.display = 'none';
+                
+                const listContainer = document.getElementById('notificationsList');
+                if (listContainer) {
+                    listContainer.innerHTML = `
+                        <div class="text-center py-4 text-muted">
+                            <i class="bi bi-box-arrow-right fs-3 d-block mb-2"></i>
+                            <small>Inicia sesión para ver notificaciones</small>
+                        </div>
+                    `;
+                }
+            });
+            </text>
         }
 
 

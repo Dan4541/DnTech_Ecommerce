@@ -1,4 +1,5 @@
 using DnTech_Ecommerce.Data;
+using DnTech_Ecommerce.Hubs;
 using DnTech_Ecommerce.Models;
 using DnTech_Ecommerce.Services;
 using Microsoft.AspNetCore.Identity;
@@ -47,10 +48,14 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.SlidingExpiration = true;
 });
 
+builder.Services.AddSignalR();
+
 // Registrar servicio de reportes
 builder.Services.AddScoped<ReportService>();
 builder.Services.AddScoped<PayPalService>();
 builder.Services.AddScoped<StripeService>();
+builder.Services.AddScoped<NotificationService>();
+
 
 builder.Services.AddControllersWithViews();
 
@@ -98,6 +103,8 @@ app.UseCors("AllowPayPal");
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.MapHub<NotificationHub>("/notificationHub");
 
 app.MapControllerRoute(
     name: "default",

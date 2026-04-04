@@ -19,13 +19,15 @@ namespace DnTech_Ecommerce.Controllers
         private readonly UserManager<User> _userManager;
         private readonly PayPalService _payPalService;
         private readonly StripeService _stripeService;
+        private readonly NotificationService _notificationService;
 
-        public CheckoutController(ApplicationDbContext context, UserManager<User> userManager, PayPalService payPalService, StripeService stripeService)
+        public CheckoutController(ApplicationDbContext context, UserManager<User> userManager, PayPalService payPalService, StripeService stripeService, NotificationService notificationService)
         {
             _context = context;
             _userManager = userManager;
             _payPalService = payPalService;
             _stripeService = stripeService;
+            _notificationService = notificationService;
         }
 
         // GET: /Checkout
@@ -149,6 +151,24 @@ namespace DnTech_Ecommerce.Controllers
 
                 await _context.SaveChangesAsync();
 
+                // Notificar al cliente
+                await _notificationService.CreateAndSendNotification(
+                    userId,
+                    $"Tu pedido {order.OrderNumber} ha sido recibido y está siendo procesado.",
+                    NotificationType.NewOrder,
+                    $"/Orders/Details/{order.Id}",
+                    order.Id
+                );
+                
+                // Notificar a los administradores
+                await _notificationService.NotifyAdmins(
+                    $"Nuevo pedido {order.OrderNumber} por ${order.Total:N2}",
+                    NotificationType.NewOrder,
+                    $"/Admin/OrderDetails/{order.Id}",
+                    order.Id
+                );
+
+
                 // Redirigir a la página de confirmación
                 return RedirectToAction("Confirmation", new { id = order.Id });
             }
@@ -209,6 +229,23 @@ namespace DnTech_Ecommerce.Controllers
                 _context.CartItems.RemoveRange(cart.Items);
 
                 await _context.SaveChangesAsync();
+
+                // Notificar al cliente
+                await _notificationService.CreateAndSendNotification(
+                    userId,
+                    $"Tu pago de ${order.Total:N2} con PayPal ha sido confirmado. Pedido {order.OrderNumber} recibido.",
+                    NotificationType.PaymentConfirmed,
+                    $"/Orders/Details/{order.Id}",
+                    order.Id
+                );
+                
+                // Notificar a los administradores
+                await _notificationService.NotifyAdmins(
+                    $"Nuevo pedido {order.OrderNumber} - PayPal (${order.Total:N2})",
+                    NotificationType.NewOrder,
+                    $"/Admin/OrderDetails/{order.Id}",
+                    order.Id
+                );
 
                 // Limpiar sesión
                 HttpContext.Session.Remove("CheckoutData");
@@ -452,6 +489,23 @@ namespace DnTech_Ecommerce.Controllers
                 _context.Orders.Add(order);
                 _context.CartItems.RemoveRange(cartItems);
                 await _context.SaveChangesAsync();
+
+                // Notificar al cliente
+                await _notificationService.CreateAndSendNotification(
+                    userId,
+                    $"Tu pago de ${order.Total:N2} ha sido confirmado. Pedido {order.OrderNumber} recibido.",
+                    NotificationType.PaymentConfirmed,
+                    $"/Orders/Details/{order.Id}",
+                    order.Id
+                );
+                
+                // Notificar a los administradores
+                await _notificationService.NotifyAdmins(
+                    $"Nuevo pedido {order.OrderNumber} - Pago confirmado (${order.Total:N2})",
+                    NotificationType.NewOrder,
+                    $"/Admin/OrderDetails/{order.Id}",
+                    order.Id
+                );
 
                 // Limpiar sesión
                 HttpContext.Session.Remove("CheckoutData");

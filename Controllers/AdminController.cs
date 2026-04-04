@@ -2,6 +2,7 @@
 using DnTech_Ecommerce.Models.Enums;
 using DnTech_Ecommerce.ViewModels;
 using DnTech_Ecommerce.Models;
+using DnTech_Ecommerce.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -17,17 +18,19 @@ namespace DnTech_Ecommerce.Controllers
         private readonly IWebHostEnvironment _environment;
         private readonly UserManager<User> _userManager;
         private readonly RoleManager<Role> _roleManager;
+        private readonly NotificationService _notificationService;
 
         public AdminController(ApplicationDbContext context,
                             IWebHostEnvironment environment,
                             UserManager<User> userManager,
-                            RoleManager<Role> roleManager)
-                            
+                            RoleManager<Role> roleManager,
+                            NotificationService notificationService)                            
         {
             _context = context;
             _environment = environment;
             _userManager = userManager;
             _roleManager = roleManager;
+            _notificationService = notificationService;
         }
 
         // GET: /Admin/Dashboard
@@ -373,6 +376,35 @@ namespace DnTech_Ecommerce.Controllers
                 order.Status = newStatus;
                 await _context.SaveChangesAsync();
 
+                // Determinar mensaje según el nuevo estado
+                string message = newStatus switch
+                {
+                    OrderStatus.Processing => $"Tu pedido {order.OrderNumber} está siendo procesado.",
+                    OrderStatus.Shipped => $"¡Tu pedido {order.OrderNumber} ha sido enviado! Pronto llegará a tu dirección.",
+                    OrderStatus.Delivered => $"¡Tu pedido {order.OrderNumber} ha sido entregado! Disfruta tu compra.",
+                    OrderStatus.Cancelled => $"Tu pedido {order.OrderNumber} ha sido cancelado.",
+                    _ => $"El estado de tu pedido {order.OrderNumber} ha cambiado."
+                };
+
+                // Determinar tipo de notificación
+                NotificationType notificationType = newStatus switch
+                {
+                    OrderStatus.Shipped => NotificationType.OrderShipped,
+                    OrderStatus.Delivered => NotificationType.OrderDelivered,
+                    OrderStatus.Cancelled => NotificationType.OrderCancelled,
+                    _ => NotificationType.OrderStatusChange
+                };
+            
+                // Enviar notificación al cliente
+                await _notificationService.CreateAndSendNotification(
+                    order.UserId,
+                    message,
+                    notificationType,
+                    $"/Orders/Details/{order.Id}",
+                    order.Id
+                );
+
+
                 TempData["SuccessMessage"] = $"Estado del pedido actualizado a {GetStatusName(newStatus)}.";
                 return RedirectToAction("OrderDetails", new { id = orderId });
             }
@@ -382,6 +414,85 @@ namespace DnTech_Ecommerce.Controllers
                 return RedirectToAction("OrderDetails", new { id = orderId });
             }
         }
+
+        /*
+        public async Task<IActionResult> UpdateOrderStatus(int orderId, OrderStatus newStatus)
+        {
+            try
+            {
+                var order = await _context.Orders.FindAsync(orderId);
+                
+                if (order == null)
+                {
+                    TempData["ErrorMessage"] = "Pedido no encontrado.";
+                    return RedirectToAction("Orders");
+                }
+
+                // Guardar estado anterior antes de actualizar
+                var oldStatus = order.Status;
+
+                // Validar transiciones de estado (TODOS los casos)
+                if (!IsValidStatusTransition(oldStatus, newStatus))
+                {
+                    TempData["ErrorMessage"] = $"No se puede cambiar de {oldStatus} a {newStatus}.";
+                    return RedirectToAction("OrderDetails", new { id = orderId });
+                }
+
+                // Actualizar estado
+                order.Status = newStatus;
+                order.LastStatusUpdate = DateTime.UtcNow;
+                
+                // Si se entrega, registrar fecha de entrega
+                if (newStatus == OrderStatus.Delivered)
+                {
+                    order.DeliveredDate = DateTime.UtcNow;
+                }
+                
+                await _context.SaveChangesAsync();
+
+                // Enviar notificación SOLO si el estado realmente cambió
+                if (oldStatus != newStatus)
+                {
+                    await _notificationService.SendOrderStatusNotification(order, oldStatus, newStatus);
+                }
+
+                TempData["SuccessMessage"] = $"Estado del pedido actualizado de {oldStatus} a {GetStatusName(newStatus)}.";
+                return RedirectToAction("OrderDetails", new { id = orderId });
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = $"Error al actualizar el estado: {ex.Message}";
+                return RedirectToAction("OrderDetails", new { id = orderId });
+            }
+        }
+
+        private bool IsValidStatusTransition(OrderStatus from, OrderStatus to)
+        {
+            // Reglas de negocio
+            return (from, to) switch
+            {
+                // No se puede cambiar desde estados finales
+                (OrderStatus.Cancelled, _) => false,
+                (OrderStatus.Delivered, _) => false,
+                
+                // Transiciones válidas
+                (OrderStatus.Pending, OrderStatus.Processing) => true,
+                (OrderStatus.Pending, OrderStatus.Cancelled) => true,
+                
+                (OrderStatus.Processing, OrderStatus.Shipped) => true,
+                (OrderStatus.Processing, OrderStatus.Cancelled) => true,
+                
+                (OrderStatus.Shipped, OrderStatus.Delivered) => true,
+                (OrderStatus.Shipped, OrderStatus.Cancelled) => true,
+                
+                // Mismo estado (no hacer nada)
+                (_, _) when from == to => true,
+                
+                // Cualquier otra transición no permitida
+                _ => false
+            };
+        }
+        */
 
         // Método auxiliar para obtener nombre del estado en español
         private string GetStatusName(OrderStatus status)
