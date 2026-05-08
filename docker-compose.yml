@@ -1,0 +1,41 @@
+services:
+
+  app:
+    build: .                          # construye desde el Dockerfile local
+    image: dntech_ecommerce:local
+    ports:
+      - "8080:8080"                   # host:contenedor
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Server=db;Database=DnTech_Ecommerce;User Id=sa;Password=${DB_PASSWORD};TrustServerCertificate=True
+    depends_on:
+      db:
+        condition: service_healthy    # espera que SQL Server esté listo
+    networks:
+      - appnet
+
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    ports:
+      - "1440:1433"
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=${DB_PASSWORD}    # viene del archivo .env
+      - MSSQL_PID=Developer           # licencia gratuita para desarrollo
+    volumes:
+      - sqldata:/var/opt/mssql        # datos persisten aquí
+    healthcheck:
+      test: ["CMD", "/opt/mssql-tools18/bin/sqlcmd", "-S", "localhost",
+             "-U", "sa", "-P", "${DB_PASSWORD}",
+             "-Q", "SELECT 1", "-No"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - appnet
+
+volumes:
+  sqldata:                            # volumen nombrado, gestionado por Docker
+
+networks:
+  appnet:                             # red interna, los contenedores se ven por nombre

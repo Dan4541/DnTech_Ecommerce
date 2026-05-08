@@ -7,7 +7,6 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DnTech_Ecommerce.Controllers
 {
-    //[Authorize]
     public class ProductsController : Controller
     {
         private readonly ApplicationDbContext _context;

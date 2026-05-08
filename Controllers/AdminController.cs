@@ -11,7 +11,7 @@ using Microsoft.AspNetCore.Identity;
 
 namespace DnTech_Ecommerce.Controllers
 {    
-    [Authorize(Roles = "Administrator")]
+    [Authorize(Roles = "Admin")]
     public class AdminController : Controller
     {
         private readonly ApplicationDbContext _context;

@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace DnTech_Ecommerce.Controllers
 {
-    [Authorize(Roles = "Administrator")]
+    [Authorize(Roles = "Admin")]
     public class ReportsController : Controller
     {
         private readonly ReportService _reportService;

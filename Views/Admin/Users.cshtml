@@ -80,7 +80,7 @@
                 </label>
                 <select class="form-select" name="FilterRole">
                     <option value="">Todos</option>
-                    <option value="Administrator" selected="@(Model.FilterRole == "Administrator")">Administrador</option>
+                    <option value="Admin" selected="@(Model.FilterRole == "Admin")">Administrador</option>
                     <option value="Client" selected="@(Model.FilterRole == "Client")">Cliente</option>
                 </select>
             </div>
@@ -168,7 +168,7 @@
                             <td>
                                 @foreach (var role in user.Roles)
                                 {
-                                    if (role == "Administrator")
+                                    if (role == "Admin")
                                     {
                                         <span class="badge bg-danger">
                                             <i class="bi bi-shield-fill"></i> Admin

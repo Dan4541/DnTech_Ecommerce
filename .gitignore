@@ -10,6 +10,7 @@
 ## Directorio de caché de paquetes (puede ser distinto en versiones antiguas, pero esta es la moderna)
 .vs/
 .vscode/
+.env
 
 # Paquetes NuGet, si se descargan localmente (no recomendado, pero ocurre)
 packages/

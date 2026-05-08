@@ -101,13 +101,14 @@
                                 @User.Identity.Name
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end">
-                                @if (User.IsInRole("Administrator"))
+                                @if (User.IsInRole("Admin"))
                                 {
                                     <li><a class="dropdown-item" asp-controller="Admin" asp-action="Dashboard"><i class="bi bi-speedometer2 me-2"></i>Panel Admin</a></li>
                                     <li><hr class="dropdown-divider"></li>
                                 }
                                 <li><a class="dropdown-item" asp-controller="Account" asp-action="Profile"><i class="bi bi-person me-2"></i>Mi Perfil</a></li>
                                 <li><a class="dropdown-item" asp-controller="Orders" asp-action="Index"><i class="bi bi-bag me-2"></i>Mis Pedidos</a></li>
+                                <li><a class="dropdown-item" asp-controller="Notifications" asp-action="Index"><i class="bi bi-bell me-2"></i>Mis Notificaciones</a></li>
                                 <li><a class="dropdown-item" href="#"><i class="bi bi-heart me-2"></i>Favoritos</a></li>
                                 <li><hr class="dropdown-divider"></li>
                                 <li>
